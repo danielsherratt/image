@@ -251,6 +251,7 @@
     .out-item:hover{transform:translateY(-2px); box-shadow:0 14px 40px rgba(15,23,42,.08);}
     .out-item img{
       width:100%; height:auto; display:block;
+      cursor:zoom-in;
     }
     .out-meta{
       padding:10px 12px;
@@ -275,6 +276,82 @@
       font-size:11px; background:#f8fafc; padding:2px 5px; border-radius:6px;
       border:1px solid var(--border); color:#334155;
       word-break:break-all;
+    }
+
+    /* Progress bar */
+    .progress{
+      position:relative;
+      height:12px;
+      background:#e2e8f0;
+      border-radius:999px;
+      overflow:hidden;
+      border:1px solid var(--border);
+      box-shadow: inset 0 1px 2px rgba(15,23,42,.05);
+    }
+    .progress .bar{
+      position:absolute;
+      inset:0;
+      width:0%;
+      background:linear-gradient(120deg, var(--accent), var(--accent-2));
+      transition: width .2s ease;
+    }
+    .progress-row{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      font-size:13px;
+      color:var(--muted);
+    }
+
+    /* Modal */
+    .modal-backdrop{
+      position:fixed;
+      inset:0;
+      background:rgba(15,23,42,.65);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      z-index:1000;
+      opacity:0;
+      pointer-events:none;
+      transition: opacity .18s ease;
+    }
+    .modal-backdrop.show{
+      opacity:1;
+      pointer-events:auto;
+    }
+    .modal-content{
+      background:#0f172a;
+      border-radius:16px;
+      overflow:hidden;
+      max-width:90vw;
+      max-height:90vh;
+      box-shadow:0 24px 80px rgba(0,0,0,.35);
+      position:relative;
+    }
+    .modal-content img{
+      display:block;
+      width:100%;
+      height:auto;
+      max-height:90vh;
+      object-fit:contain;
+      background:#0b1223;
+    }
+    .modal-close{
+      position:absolute;
+      top:10px;
+      right:10px;
+      border:none;
+      width:32px;
+      height:32px;
+      border-radius:50%;
+      background:rgba(15,23,42,.75);
+      color:#fff;
+      cursor:pointer;
+      display:grid;
+      place-items:center;
+      box-shadow:0 8px 20px rgba(0,0,0,.35);
     }
 
     /* Header */
@@ -410,6 +487,13 @@
         <span class="status" id="status"></span>
       </div>
 
+      <div class="progress-row" id="progressRow" style="display:none;">
+        <div class="progress" aria-hidden="true">
+          <div class="bar" id="progressBar"></div>
+        </div>
+        <span id="progressText"></span>
+      </div>
+
       <div class="queue" id="queue"></div>
     </div>
   </div>
@@ -423,6 +507,15 @@
     <div class="out-grid" id="output"></div>
   </div>
 
+</div>
+
+<div class="modal-backdrop" id="imageModal" aria-hidden="true">
+  <div class="modal-content">
+    <button class="modal-close" id="closeModal" aria-label="Close image preview">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <img id="modalImage" alt="Preview" />
+  </div>
 </div>
 
 <script>
@@ -452,7 +545,7 @@
 
   const getModel = setupSeg("modelSeg", "gpt-image-1");
   const getQuality = setupSeg("qualitySeg", "low");
-  const getSize = setupSeg("sizeSeg", "1024x1536", true);
+  const getSize = setupSeg("sizeSeg", "1024x1024", true);
 
   // ---------- Elements ----------
   const promptEl = document.getElementById("prompt");
@@ -460,6 +553,12 @@
   const outputEl = document.getElementById("output");
   const statusEl = document.getElementById("status");
   const qCountEl = document.getElementById("qCount");
+  const progressRowEl = document.getElementById("progressRow");
+  const progressBarEl = document.getElementById("progressBar");
+  const progressTextEl = document.getElementById("progressText");
+  const imageModalEl = document.getElementById("imageModal");
+  const modalImageEl = document.getElementById("modalImage");
+  const closeModalEl = document.getElementById("closeModal");
 
   const addBtn = document.getElementById("addBtn");
   const addLinesBtn = document.getElementById("addLinesBtn");
@@ -468,9 +567,47 @@
   const stopBtn = document.getElementById("stopBtn");
   const clearOutBtn = document.getElementById("clearOutBtn");
 
+  const STORAGE_KEY = "image-generator-outputs";
+  const savedOutputs = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+
   function setStatus(msg, isError=false){
     statusEl.textContent = msg || "";
     statusEl.classList.toggle("error", !!isError);
+  }
+
+  function persistOutputs(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedOutputs));
+  }
+
+  function openModal(src, alt){
+    modalImageEl.src = src;
+    modalImageEl.alt = alt || "Preview";
+    imageModalEl.classList.add("show");
+    imageModalEl.setAttribute("aria-hidden", "false");
+  }
+
+  function closeModal(){
+    imageModalEl.classList.remove("show");
+    imageModalEl.setAttribute("aria-hidden", "true");
+    modalImageEl.src = "";
+  }
+
+  imageModalEl.addEventListener("click", (e)=>{
+    if(e.target === imageModalEl) closeModal();
+  });
+  closeModalEl.addEventListener("click", closeModal);
+
+  function updateProgress(current, total){
+    if(total <= 0){
+      progressRowEl.style.display = "none";
+      progressBarEl.style.width = "0%";
+      progressTextEl.textContent = "";
+      return;
+    }
+    const pct = Math.round((current / total) * 100);
+    progressRowEl.style.display = "flex";
+    progressBarEl.style.width = `${pct}%`;
+    progressTextEl.textContent = `${current}/${total}`;
   }
 
   // ---------- Queue state ----------
@@ -548,15 +685,16 @@
 
   clearOutBtn.addEventListener("click", ()=>{
     outputEl.innerHTML = "";
+    savedOutputs.length = 0;
+    persistOutputs();
   });
 
   // ---------- Output cards ----------
-  function addOutputCard({ dataUrl, b64, prompt, model, quality, size, sizeLabel }){
+  function addOutputCard({ dataUrl, prompt, model, quality, size, sizeLabel, createdAt }, shouldSave=true){
     const item = document.createElement("div");
     item.className = "out-item";
 
     const filename = prompt.slice(0,40).replace(/[^\w\-]+/g,"_") || "image";
-    const base64Preview = b64 ? `${b64.slice(0,180)}…` : "N/A (URL response)";
     item.innerHTML = `
       <img src="${dataUrl}" alt="${prompt.replace(/"/g,"&quot;")}"/>
       <div class="out-meta">
@@ -570,14 +708,21 @@
           </a>
         </div>
         <div>${prompt}</div>
-        <div>
-          <div class="label" style="margin:4px 0 4px;">Base64</div>
-          <code class="small">${base64Preview}</code>
-        </div>
       </div>
     `;
+    const imgEl = item.querySelector("img");
+    imgEl.addEventListener("click", ()=> openModal(dataUrl, prompt));
     outputEl.prepend(item);
+
+    if(shouldSave){
+      const entry = { dataUrl, prompt, model, quality, size, sizeLabel, createdAt: createdAt || Date.now() };
+      savedOutputs.unshift(entry);
+      if(savedOutputs.length > 20) savedOutputs.length = 20;
+      persistOutputs();
+    }
   }
+
+  savedOutputs.forEach(entry => addOutputCard(entry, false));
 
   // ---------- API call ----------
   async function generateOne(job){
@@ -606,6 +751,8 @@
     stopRequested = false;
     runBtn.disabled = true;
     stopBtn.disabled = false;
+    const total = jobs.length;
+    updateProgress(0, total);
 
     try{
       for(let i=0; i<jobs.length; i++){
@@ -613,19 +760,20 @@
         const job = jobs[i];
 
         const data = await generateOne(job);
-        // expecting { images: [{ b64?, dataUrl }] }
+        // expecting { images: [{ dataUrl }] }
         const img = data?.images?.[0];
         if(!img?.dataUrl) throw new Error("No image returned.");
 
         addOutputCard({
           dataUrl: img.dataUrl,
-          b64: img.b64,
           prompt: job.prompt,
           model: job.model,
           quality: job.quality,
           size: job.size,
           sizeLabel: job.sizeLabel
         });
+
+        updateProgress(i+1, total);
 
         if(stopRequested){
           setStatus("Stopped after current job.");
@@ -636,6 +784,7 @@
       console.error(err);
       setStatus(err.message || "Something went wrong.", true);
     }finally{
+      updateProgress(0,0);
       running = false;
       runBtn.disabled = false;
       stopBtn.disabled = true;
