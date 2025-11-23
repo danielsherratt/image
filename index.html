@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>GPT Image Queue</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Font Awesome (icons) -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+
+  <style>
+    :root{
+      --bg:#f5f7fb;
+      --card:#ffffff;
+      --ink:#0f172a;
+      --muted:#64748b;
+      --border:#e2e8f0;
+      --accent:#0ea5a4;   /* teal-ish */
+      --accent-soft:#e6fffb;
+      --danger:#ef4444;
+      --radius:14px;
+    }
+    *{box-sizing:border-box;}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      padding: 14px;
+    }
+    .wrap{
+      max-width: 1100px;
+      margin:0 auto;
+      display:grid;
+      gap:12px;
+    }
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:14px;
+      box-shadow:0 8px 18px rgba(15,23,42,.06);
+    }
+    h1{
+      margin:0 0 6px 0;
+      font-size:20px;
+    }
+    .sub{
+      font-size:14px;
+      color:var(--muted);
+    }
+
+    /* Layout */
+    .grid{
+      display:grid;
+      gap:12px;
+    }
+    @media(min-width:900px){
+      .grid.cols-2{grid-template-columns: 1.1fr .9fr;}
+      .grid.cols-3{grid-template-columns: repeat(3,1fr);}
+    }
+
+    /* Segmented toggle w/ sliding highlight */
+    .seg{
+      position:relative;
+      display:flex;
+      background:#f1f5f9;
+      border:1px solid var(--border);
+      border-radius:999px;
+      padding:4px;
+      gap:4px;
+      overflow:hidden;
+    }
+    .seg .slider{
+      position:absolute;
+      top:4px; bottom:4px;
+      left:4px;
+      width:calc((100% - 8px) / var(--count));
+      background: #fff;
+      border-radius:999px;
+      box-shadow:0 3px 8px rgba(15,23,42,.08);
+      transition: transform .25s ease;
+      transform: translateX(calc(var(--index) * 100%));
+      z-index:0;
+    }
+    .seg button{
+      position:relative;
+      z-index:1;
+      flex:1;
+      border:none;
+      background:transparent;
+      padding:8px 10px;
+      border-radius:999px;
+      cursor:pointer;
+      font-size:14px;
+      color:var(--muted);
+      transition: color .2s ease, transform .05s ease;
+      white-space:nowrap;
+    }
+    .seg button.active{
+      color:var(--ink);
+      font-weight:700;
+    }
+    .seg button:active{transform:translateY(1px);}
+
+    .label{
+      font-size:12px;
+      color:var(--muted);
+      margin:0 0 6px 4px;
+    }
+
+    textarea, input[type="text"]{
+      width:100%;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:10px 12px;
+      font-size:15px;
+      outline:none;
+      background:#fff;
+    }
+    textarea{min-height:110px; resize:vertical;}
+    textarea::placeholder{color:#94a3b8;}
+
+    /* Buttons */
+    .btn{
+      border:1px solid var(--border);
+      background:#fff;
+      padding:9px 12px;
+      border-radius:12px;
+      cursor:pointer;
+      font-weight:600;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      transition: transform .08s ease, background .2s ease, border-color .2s ease;
+    }
+    .btn:hover{border-color:#cbd5e1; background:#fafafa;}
+    .btn:active{transform:translateY(1px);}
+    .btn.primary{
+      background:var(--accent);
+      color:#fff;
+      border-color:transparent;
+    }
+    .btn.primary:hover{background:#119a99;}
+    .btn.danger{color:#b91c1c; border-color:#fecaca; background:#fff5f5;}
+    .btn.small{padding:6px 9px; font-size:13px; border-radius:10px;}
+
+    .actions{
+      display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+    }
+    .status{
+      font-size:14px; color:var(--muted);
+    }
+    .status.error{color:var(--danger);}
+
+    /* Queue list */
+    .queue{
+      display:grid; gap:8px; margin-top:8px;
+      max-height:260px; overflow:auto; padding-right:2px;
+    }
+    .q-item{
+      border:1px dashed var(--border);
+      border-radius:12px;
+      padding:8px 10px;
+      display:grid;
+      grid-template-columns: 1fr auto;
+      gap:8px;
+      background:#fff;
+    }
+    .q-meta{
+      font-size:12px; color:var(--muted);
+      display:flex; flex-wrap:wrap; gap:6px; margin-top:4px;
+    }
+    .pill{
+      font-size:12px; background:#f1f5f9; padding:2px 7px; border-radius:999px;
+    }
+
+    /* Output gallery */
+    .out-grid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px,1fr));
+      gap:10px; margin-top:8px;
+    }
+    .out-item{
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+      background:#fff;
+      display:grid;
+    }
+    .out-item img{
+      width:100%; height:auto; display:block;
+    }
+    .out-meta{
+      padding:8px 10px;
+      font-size:12px; color:var(--muted);
+      display:grid; gap:6px;
+    }
+    .out-row{
+      display:flex; flex-wrap:wrap; gap:6px; align-items:center;
+    }
+    .download{
+      margin-left:auto;
+      text-decoration:none;
+      color:var(--ink);
+      font-weight:700;
+      display:inline-flex; align-items:center; gap:6px;
+      border:1px solid var(--border);
+      padding:5px 8px; border-radius:10px;
+      background:#fff;
+    }
+    .download:hover{background:#fafafa; border-color:#cbd5e1;}
+    code.small{
+      font-size:11px; background:#f8fafc; padding:2px 5px; border-radius:6px;
+      border:1px solid var(--border); color:#334155;
+      word-break:break-all;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="card">
+    <h1>GPT Image Queue (gpt-image-1 / mini)</h1>
+    <div class="sub">
+      Add prompts to the queue, then Run Queue. Jobs execute one after another.
+      Output shows inline base64 + a download button.
+    </div>
+  </div>
+
+  <!-- Controls + Queue -->
+  <div class="grid cols-2">
+
+    <!-- Left: Controls -->
+    <div class="card grid" style="gap:10px;">
+      <div class="grid cols-3">
+        <div>
+          <div class="label">Model</div>
+          <div class="seg" id="modelSeg" style="--count:2; --index:0;">
+            <div class="slider"></div>
+            <button data-value="gpt-image-1" class="active">gpt-image-1</button>
+            <button data-value="gpt-image-1-mini">mini</button>
+          </div>
+        </div>
+        <div>
+          <div class="label">Quality</div>
+          <div class="seg" id="qualitySeg" style="--count:3; --index:0;">
+            <div class="slider"></div>
+            <button data-value="low" class="active">Low</button>
+            <button data-value="medium">Med</button>
+            <button data-value="high">High</button>
+          </div>
+        </div>
+        <div>
+          <div class="label">Size</div>
+          <div class="seg" id="sizeSeg" style="--count:3; --index:0;">
+            <div class="slider"></div>
+            <button data-value="1024x1024" class="active">1:1</button>
+            <button data-value="1024x1536">2:3</button>
+            <button data-value="1536x1024">3:2</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="label">Prompt</div>
+        <textarea id="prompt" placeholder="Write a prompt, then click Add to Queue."></textarea>
+      </div>
+
+      <div class="actions">
+        <button class="btn" id="addBtn"><i class="fa-solid fa-plus"></i> Add to Queue</button>
+        <button class="btn" id="addLinesBtn"><i class="fa-solid fa-list"></i> Add Each Line</button>
+        <button class="btn danger" id="clearQueueBtn"><i class="fa-solid fa-trash"></i> Clear Queue</button>
+      </div>
+
+      <div class="small sub">
+        Uses backend endpoint <code>/api/generate-image</code>. Don’t put keys in the browser.
+      </div>
+    </div>
+
+    <!-- Right: Queue -->
+    <div class="card">
+      <div class="label" style="display:flex;align-items:center;gap:8px;">
+        Queue
+        <span class="pill" id="qCount">0 jobs</span>
+      </div>
+
+      <div class="actions" style="margin-bottom:6px;">
+        <button class="btn primary" id="runBtn">
+          <i class="fa-solid fa-play"></i> Run Queue
+        </button>
+        <button class="btn" id="stopBtn" disabled>
+          <i class="fa-solid fa-stop"></i> Stop After Current
+        </button>
+        <span class="status" id="status"></span>
+      </div>
+
+      <div class="queue" id="queue"></div>
+    </div>
+  </div>
+
+  <!-- Output -->
+  <div class="card">
+    <div class="label" style="display:flex;align-items:center;gap:8px;">
+      Output
+      <button class="btn small" id="clearOutBtn"><i class="fa-solid fa-broom"></i> Clear</button>
+    </div>
+    <div class="out-grid" id="output"></div>
+  </div>
+
+</div>
+
+<script>
+  // ---------- Segmented controls w/ sliding highlight ----------
+  function setupSeg(id, defaultValue){
+    const seg = document.getElementById(id);
+    const buttons = Array.from(seg.querySelectorAll("button"));
+    let value = defaultValue;
+
+    function setActive(idx){
+      buttons.forEach(b=>b.classList.remove("active"));
+      buttons[idx].classList.add("active");
+      seg.style.setProperty("--index", idx);
+      value = buttons[idx].dataset.value;
+    }
+    buttons.forEach((btn, idx)=>{
+      btn.addEventListener("click", ()=> setActive(idx));
+    });
+    // init
+    const defIdx = buttons.findIndex(b=>b.dataset.value===defaultValue);
+    setActive(defIdx >= 0 ? defIdx : 0);
+
+    return ()=> value;
+  }
+
+  const getModel = setupSeg("modelSeg", "gpt-image-1");
+  const getQuality = setupSeg("qualitySeg", "low");
+  const getSize = setupSeg("sizeSeg", "1024x1024");
+
+  // ---------- Elements ----------
+  const promptEl = document.getElementById("prompt");
+  const queueEl = document.getElementById("queue");
+  const outputEl = document.getElementById("output");
+  const statusEl = document.getElementById("status");
+  const qCountEl = document.getElementById("qCount");
+
+  const addBtn = document.getElementById("addBtn");
+  const addLinesBtn = document.getElementById("addLinesBtn");
+  const clearQueueBtn = document.getElementById("clearQueueBtn");
+  const runBtn = document.getElementById("runBtn");
+  const stopBtn = document.getElementById("stopBtn");
+  const clearOutBtn = document.getElementById("clearOutBtn");
+
+  function setStatus(msg, isError=false){
+    statusEl.textContent = msg || "";
+    statusEl.classList.toggle("error", !!isError);
+  }
+
+  // ---------- Queue state ----------
+  const jobs = [];
+  let running = false;
+  let stopRequested = false;
+
+  function renderQueue(){
+    queueEl.innerHTML = "";
+    jobs.forEach((job, i)=>{
+      const div = document.createElement("div");
+      div.className = "q-item";
+      div.innerHTML = `
+        <div>
+          <div><strong>#${i+1}</strong> ${job.prompt}</div>
+          <div class="q-meta">
+            <span class="pill">${job.model}</span>
+            <span class="pill">${job.quality}</span>
+            <span class="pill">${job.size}</span>
+          </div>
+        </div>
+        <div class="actions" style="justify-content:flex-end;">
+          <button class="btn small danger" data-remove="${i}">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `;
+      queueEl.appendChild(div);
+    });
+
+    qCountEl.textContent = `${jobs.length} job${jobs.length===1?"":"s"}`;
+    // remove buttons
+    queueEl.querySelectorAll("[data-remove]").forEach(btn=>{
+      btn.addEventListener("click", ()=>{
+        const idx = Number(btn.dataset.remove);
+        jobs.splice(idx,1);
+        renderQueue();
+      });
+    });
+  }
+
+  function addJob(prompt){
+    jobs.push({
+      prompt,
+      model: getModel(),
+      quality: getQuality(),
+      size: getSize()
+    });
+    renderQueue();
+  }
+
+  addBtn.addEventListener("click", ()=>{
+    const p = promptEl.value.trim();
+    if(!p) return setStatus("Enter a prompt first.", true);
+    addJob(p);
+    promptEl.value = "";
+    setStatus("");
+  });
+
+  addLinesBtn.addEventListener("click", ()=>{
+    const raw = promptEl.value.trim();
+    if(!raw) return setStatus("Enter prompts first.", true);
+    raw.split("\n").map(s=>s.trim()).filter(Boolean).forEach(addJob);
+    promptEl.value = "";
+    setStatus("");
+  });
+
+  clearQueueBtn.addEventListener("click", ()=>{
+    jobs.length = 0;
+    renderQueue();
+    setStatus("");
+  });
+
+  clearOutBtn.addEventListener("click", ()=>{
+    outputEl.innerHTML = "";
+  });
+
+  // ---------- Output cards ----------
+  function addOutputCard({ dataUrl, b64, prompt, model, quality, size }){
+    const item = document.createElement("div");
+    item.className = "out-item";
+
+    const filename = prompt.slice(0,40).replace(/[^\w\-]+/g,"_") || "image";
+    item.innerHTML = `
+      <img src="${dataUrl}" alt="${prompt.replace(/"/g,"&quot;")}"/>
+      <div class="out-meta">
+        <div class="out-row">
+          <span class="pill">${model}</span>
+          <span class="pill">${quality}</span>
+          <span class="pill">${size}</span>
+
+          <a class="download" download="${filename}.png" href="${dataUrl}">
+            <i class="fa-solid fa-download"></i> Download
+          </a>
+        </div>
+        <div>${prompt}</div>
+        <div>
+          <div class="label" style="margin:4px 0 4px;">Base64</div>
+          <code class="small">${b64.slice(0,180)}…</code>
+        </div>
+      </div>
+    `;
+    outputEl.prepend(item);
+  }
+
+  // ---------- API call ----------
+  async function generateOne(job){
+    const res = await fetch("/api/generate-image",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({
+        prompt: job.prompt,
+        model: job.model,
+        quality: job.quality,
+        size: job.size,
+        n: 1
+      })
+    });
+    const text = await res.text().catch(()=> "");
+    if(!res.ok) throw new Error(text || `Request failed (${res.status})`);
+    return JSON.parse(text);
+  }
+
+  // ---------- Run queue sequentially ----------
+  runBtn.addEventListener("click", async ()=>{
+    if(running) return;
+    if(jobs.length===0) return setStatus("Queue is empty.", true);
+
+    running = true;
+    stopRequested = false;
+    runBtn.disabled = true;
+    stopBtn.disabled = false;
+
+    try{
+      for(let i=0; i<jobs.length; i++){
+        setStatus(`Running ${i+1}/${jobs.length}…`);
+        const job = jobs[i];
+
+        const data = await generateOne(job);
+        // expecting { images: [{ b64, dataUrl }] }
+        const img = data?.images?.[0];
+        if(!img?.dataUrl || !img?.b64) throw new Error("No image returned.");
+
+        addOutputCard({
+          dataUrl: img.dataUrl,
+          b64: img.b64,
+          prompt: job.prompt,
+          model: job.model,
+          quality: job.quality,
+          size: job.size
+        });
+
+        if(stopRequested){
+          setStatus("Stopped after current job.");
+          break;
+        }
+      }
+    }catch(err){
+      console.error(err);
+      setStatus(err.message || "Something went wrong.", true);
+    }finally{
+      running = false;
+      runBtn.disabled = false;
+      stopBtn.disabled = true;
+    }
+  });
+
+  stopBtn.addEventListener("click", ()=>{
+    if(!running) return;
+    stopRequested = true;
+    setStatus("Stop requested… will stop after current job.");
+  });
+
+  renderQueue();
+</script>
+</body>
+</html>
