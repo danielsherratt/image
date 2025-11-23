@@ -73,7 +73,7 @@
     .seg{
       position:relative;
       display:flex;
-      background:#fff;
+      background:linear-gradient(180deg, #f8fafc, #f1f5f9);
       border:1px solid var(--border);
       border-radius:999px;
       padding:4px;
@@ -86,7 +86,7 @@
       top:4px; bottom:4px;
       left:4px;
       width:calc((100% - 8px) / var(--count));
-      background: #f8fafc;
+      background: linear-gradient(135deg, #e2e8ff, #eef2ff);
       border-radius:999px;
       box-shadow:0 3px 8px rgba(15,23,42,.08);
       transition: transform .25s ease;
@@ -102,7 +102,7 @@
       justify-content:center;
       gap:8px;
       border:none;
-      background:transparent;
+      background:linear-gradient(180deg, #ffffff, #f8fafc);
       padding:9px 12px;
       border-radius:999px;
       cursor:pointer;
@@ -127,6 +127,7 @@
       color:var(--ink);
       font-weight:700;
       transform:translateY(-0.5px);
+      background: linear-gradient(180deg, #eef2ff, #e2e8ff);
     }
     .seg button.active .aspect-icon{
       border-color:#c0c9d9;
@@ -193,6 +194,16 @@
     .actions{
       display:flex; flex-wrap:wrap; gap:8px; align-items:center;
     }
+    .actions.action-row,
+    .actions.queue-actions{
+      justify-content:center;
+      flex-wrap:nowrap;
+    }
+    .actions.action-row .btn,
+    .actions.queue-actions .btn,
+    .actions.queue-actions .status{
+      white-space:nowrap;
+    }
     .status{
       font-size:14px; color:var(--muted);
     }
@@ -211,6 +222,7 @@
       grid-template-columns: 1fr auto;
       gap:8px;
       background:#fff;
+      align-items:center;
     }
     .q-meta{
       font-size:12px; color:var(--muted);
@@ -306,6 +318,8 @@
       .card{padding:14px;}
       .hero{flex-direction:column; align-items:flex-start;}
       .actions{gap:6px;}
+      .actions.action-row,
+      .actions.queue-actions{flex-wrap:wrap; justify-content:flex-start;}
       .seg button{padding:8px 10px;}
     }
   </style>
@@ -371,7 +385,7 @@
         <textarea id="prompt" placeholder="Write a prompt you love, then queue it up."></textarea>
       </div>
 
-      <div class="actions">
+      <div class="actions action-row">
         <button class="btn" id="addBtn"><i class="fa-solid fa-plus"></i> Add to Queue</button>
         <button class="btn" id="addLinesBtn"><i class="fa-solid fa-list"></i> Add Each Line</button>
         <button class="btn danger" id="clearQueueBtn"><i class="fa-solid fa-trash"></i> Clear Queue</button>
@@ -385,7 +399,7 @@
         <span class="pill soft" id="qCount">0 jobs</span>
       </div>
 
-      <div class="actions" style="margin-bottom:6px;">
+      <div class="actions queue-actions" style="margin-bottom:6px;">
         <button class="btn primary" id="runBtn">
           <i class="fa-solid fa-play"></i> Run Queue
         </button>
