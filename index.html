@@ -570,13 +570,43 @@
   const STORAGE_KEY = "image-generator-outputs";
   const savedOutputs = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
 
+  async function compressForStorage(dataUrl){
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = ()=>{
+        try{
+          const maxSide = 1024;
+          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // Use JPEG to shrink the payload to stay below localStorage limits
+          resolve(canvas.toDataURL("image/jpeg", 0.76));
+        }catch(err){
+          console.warn("Failed to compress image for storage", err);
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = ()=> resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
   function setStatus(msg, isError=false){
     statusEl.textContent = msg || "";
     statusEl.classList.toggle("error", !!isError);
   }
 
   function persistOutputs(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedOutputs));
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(savedOutputs));
+    }catch(err){
+      console.warn("Could not persist outputs", err);
+      setStatus("Could not save images locally because storage is full.", true);
+    }
+  }
   }
 
   function openModal(src, alt){
@@ -716,9 +746,13 @@
 
     if(shouldSave){
       const entry = { dataUrl, prompt, model, quality, size, sizeLabel, createdAt: createdAt || Date.now() };
-      savedOutputs.unshift(entry);
-      if(savedOutputs.length > 20) savedOutputs.length = 20;
-      persistOutputs();
+      // Compress before persisting to reduce localStorage footprint
+      compressForStorage(dataUrl).then(minifiedDataUrl => {
+        const stored = { ...entry, dataUrl: minifiedDataUrl };
+        savedOutputs.unshift(stored);
+        if(savedOutputs.length > 20) savedOutputs.length = 20;
+        persistOutputs();
+      });
     }
   }
 
