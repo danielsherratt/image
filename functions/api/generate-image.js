@@ -12,8 +12,7 @@ export async function onRequestPost({ request, env }) {
       prompt,
       quality: quality || "low",
       size: size || "1024x1024",
-      n: n || 1,
-      response_format: "b64_json"
+      n: n || 1
     }),
   });
 
@@ -22,8 +21,8 @@ export async function onRequestPost({ request, env }) {
 
   const json = JSON.parse(txt);
   const images = (json.data || []).map(d => {
-    const b64 = d.b64_json;
-    const dataUrl = `data:image/png;base64,${b64}`;
+    const b64 = d.b64_json || "";
+    const dataUrl = b64 ? `data:image/png;base64,${b64}` : d.url;
     return { b64, dataUrl };
   });
 

@@ -556,6 +556,7 @@
     item.className = "out-item";
 
     const filename = prompt.slice(0,40).replace(/[^\w\-]+/g,"_") || "image";
+    const base64Preview = b64 ? `${b64.slice(0,180)}…` : "N/A (URL response)";
     item.innerHTML = `
       <img src="${dataUrl}" alt="${prompt.replace(/"/g,"&quot;")}"/>
       <div class="out-meta">
@@ -571,7 +572,7 @@
         <div>${prompt}</div>
         <div>
           <div class="label" style="margin:4px 0 4px;">Base64</div>
-          <code class="small">${b64.slice(0,180)}…</code>
+          <code class="small">${base64Preview}</code>
         </div>
       </div>
     `;
@@ -612,9 +613,9 @@
         const job = jobs[i];
 
         const data = await generateOne(job);
-        // expecting { images: [{ b64, dataUrl }] }
+        // expecting { images: [{ b64?, dataUrl }] }
         const img = data?.images?.[0];
-        if(!img?.dataUrl || !img?.b64) throw new Error("No image returned.");
+        if(!img?.dataUrl) throw new Error("No image returned.");
 
         addOutputCard({
           dataUrl: img.dataUrl,
