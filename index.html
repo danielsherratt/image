@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>GPT Image Queue</title>
+  <title>Image Generator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Font Awesome (icons) -->
@@ -10,45 +10,53 @@
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
 
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
     :root{
-      --bg:#f5f7fb;
+      --bg:#f4f6fb;
       --card:#ffffff;
       --ink:#0f172a;
-      --muted:#64748b;
+      --muted:#5b6474;
       --border:#e2e8f0;
-      --accent:#0ea5a4;   /* teal-ish */
-      --accent-soft:#e6fffb;
+      --accent:#4f46e5;
+      --accent-2:#06b6d4;
+      --accent-soft:#eef2ff;
       --danger:#ef4444;
-      --radius:14px;
+      --radius:16px;
     }
     *{box-sizing:border-box;}
     body{
       margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, sans-serif;
-      background: var(--bg);
+      font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(circle at 10% 20%, #eef2ff 0, #f8fafc 32%, #f4f6fb 60%);
       color: var(--ink);
-      padding: 14px;
+      padding: 18px;
     }
     .wrap{
-      max-width: 1100px;
+      max-width: 1180px;
       margin:0 auto;
       display:grid;
-      gap:12px;
+      gap:14px;
     }
     .card{
       background:var(--card);
       border:1px solid var(--border);
       border-radius:var(--radius);
-      padding:14px;
-      box-shadow:0 8px 18px rgba(15,23,42,.06);
+      padding:18px;
+      box-shadow:0 14px 50px rgba(15,23,42,.06);
+    }
+    .card.frosted{
+      backdrop-filter: blur(10px);
+      border-color: rgba(79,70,229,.15);
     }
     h1{
-      margin:0 0 6px 0;
-      font-size:20px;
+      margin:0 0 4px 0;
+      font-size:22px;
+      letter-spacing:-0.4px;
     }
     .sub{
       font-size:14px;
       color:var(--muted);
+      max-width: 720px;
     }
 
     /* Layout */
@@ -65,19 +73,20 @@
     .seg{
       position:relative;
       display:flex;
-      background:#f1f5f9;
+      background:#fff;
       border:1px solid var(--border);
       border-radius:999px;
       padding:4px;
       gap:4px;
       overflow:hidden;
+      box-shadow:0 10px 26px rgba(15,23,42,.05);
     }
     .seg .slider{
       position:absolute;
       top:4px; bottom:4px;
       left:4px;
       width:calc((100% - 8px) / var(--count));
-      background: #fff;
+      background: #f8fafc;
       border-radius:999px;
       box-shadow:0 3px 8px rgba(15,23,42,.08);
       transition: transform .25s ease;
@@ -88,9 +97,13 @@
       position:relative;
       z-index:1;
       flex:1;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
       border:none;
       background:transparent;
-      padding:8px 10px;
+      padding:9px 12px;
       border-radius:999px;
       cursor:pointer;
       font-size:14px;
@@ -98,11 +111,39 @@
       transition: color .2s ease, transform .05s ease;
       white-space:nowrap;
     }
+    .seg button .aspect-icon{
+      display:inline-block;
+      width:14px; height:14px;
+      border:2px solid #d5deeb;
+      border-radius:7px;
+      background:#fff;
+      box-shadow: inset 0 0 0 1px rgba(148,163,184,.25);
+      transition: border-color .2s ease, box-shadow .2s ease;
+    }
+    .seg button .aspect-icon.square{width:16px; height:16px;}
+    .seg button .aspect-icon.portrait{width:12px; height:18px;}
+    .seg button .aspect-icon.landscape{width:18px; height:12px;}
     .seg button.active{
       color:var(--ink);
       font-weight:700;
+      transform:translateY(-0.5px);
+    }
+    .seg button.active .aspect-icon{
+      border-color:#c0c9d9;
+      box-shadow: inset 0 0 0 1px rgba(51,65,85,.35);
     }
     .seg button:active{transform:translateY(1px);}
+
+    .sr-only{
+      position:absolute;
+      width:1px;
+      height:1px;
+      padding:0;
+      margin:-1px;
+      overflow:hidden;
+      clip:rect(0,0,0,0);
+      border:0;
+    }
 
     .label{
       font-size:12px;
@@ -118,33 +159,36 @@
       font-size:15px;
       outline:none;
       background:#fff;
+      box-shadow:0 12px 30px rgba(15,23,42,.04);
     }
-    textarea{min-height:110px; resize:vertical;}
+    textarea{min-height:120px; resize:vertical; font-family:"Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;}
     textarea::placeholder{color:#94a3b8;}
 
     /* Buttons */
     .btn{
       border:1px solid var(--border);
       background:#fff;
-      padding:9px 12px;
+      padding:10px 14px;
       border-radius:12px;
       cursor:pointer;
       font-weight:600;
       display:inline-flex;
       align-items:center;
       gap:8px;
-      transition: transform .08s ease, background .2s ease, border-color .2s ease;
+      transition: transform .08s ease, background .2s ease, border-color .2s ease, box-shadow .2s ease;
+      box-shadow:0 12px 30px rgba(15,23,42,.05);
     }
     .btn:hover{border-color:#cbd5e1; background:#fafafa;}
     .btn:active{transform:translateY(1px);}
     .btn.primary{
-      background:var(--accent);
+      background:linear-gradient(120deg, var(--accent), var(--accent-2));
       color:#fff;
       border-color:transparent;
+      box-shadow:0 12px 35px rgba(79,70,229,.35);
     }
-    .btn.primary:hover{background:#119a99;}
+    .btn.primary:hover{filter:brightness(1.05);}
     .btn.danger{color:#b91c1c; border-color:#fecaca; background:#fff5f5;}
-    .btn.small{padding:6px 9px; font-size:13px; border-radius:10px;}
+    .btn.small{padding:7px 10px; font-size:13px; border-radius:10px;}
 
     .actions{
       display:flex; flex-wrap:wrap; gap:8px; align-items:center;
@@ -179,21 +223,24 @@
     /* Output gallery */
     .out-grid{
       display:grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px,1fr));
-      gap:10px; margin-top:8px;
+      grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+      gap:12px; margin-top:10px;
     }
     .out-item{
       border:1px solid var(--border);
-      border-radius:12px;
+      border-radius:14px;
       overflow:hidden;
       background:#fff;
       display:grid;
+      box-shadow:0 12px 30px rgba(15,23,42,.06);
+      transition: transform .12s ease, box-shadow .2s ease;
     }
+    .out-item:hover{transform:translateY(-2px); box-shadow:0 14px 40px rgba(15,23,42,.08);}
     .out-item img{
       width:100%; height:auto; display:block;
     }
     .out-meta{
-      padding:8px 10px;
+      padding:10px 12px;
       font-size:12px; color:var(--muted);
       display:grid; gap:6px;
     }
@@ -216,17 +263,63 @@
       border:1px solid var(--border); color:#334155;
       word-break:break-all;
     }
+
+    /* Header */
+    .hero{
+      display:flex;
+      align-items:center;
+      gap:14px;
+    }
+    .logo{
+      width:48px; height:48px;
+      border-radius:14px;
+      background:radial-gradient(circle at 20% 20%, #ffffff 10%, rgba(255,255,255,0) 45%),
+                 linear-gradient(135deg, var(--accent), var(--accent-2));
+      display:grid; place-items:center;
+      color:#fff;
+      font-weight:800;
+      letter-spacing:-0.5px;
+      box-shadow:0 12px 30px rgba(79,70,229,.45);
+      position:relative;
+      overflow:hidden;
+    }
+    .logo::after{
+      content:"";
+      position:absolute;
+      inset:8px;
+      border-radius:12px;
+      border:1px solid rgba(255,255,255,.35);
+    }
+    .pill.soft{background:var(--accent-soft); color:var(--accent); font-weight:700;}
+    .section-title{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      font-weight:700;
+      color:var(--ink);
+      margin-bottom:4px;
+    }
+    .section-title .pill{margin-left:auto;}
+
+    @media(max-width:720px){
+      body{padding:14px;}
+      .card{padding:14px;}
+      .hero{flex-direction:column; align-items:flex-start;}
+      .actions{gap:6px;}
+      .seg button{padding:8px 10px;}
+    }
   </style>
 </head>
 <body>
 <div class="wrap">
 
   <!-- Header -->
-  <div class="card">
-    <h1>GPT Image Queue (gpt-image-1 / mini)</h1>
-    <div class="sub">
-      Add prompts to the queue, then Run Queue. Jobs execute one after another.
-      Output shows inline base64 + a download button.
+  <div class="card frosted">
+    <div class="hero">
+      <div class="logo">IQ</div>
+      <div>
+        <h1>Image Generator</h1>
+      </div>
     </div>
   </div>
 
@@ -257,16 +350,25 @@
           <div class="label">Size</div>
           <div class="seg" id="sizeSeg" style="--count:3; --index:0;">
             <div class="slider"></div>
-            <button data-value="1024x1024" class="active">1:1</button>
-            <button data-value="1024x1536">2:3</button>
-            <button data-value="1536x1024">3:2</button>
+            <button data-value="1024x1024" data-label="Square" aria-label="Square" title="Square">
+              <span class="aspect-icon square"></span>
+              <span class="sr-only">Square</span>
+            </button>
+            <button data-value="1024x1536" data-label="Portrait" aria-label="Portrait" title="Portrait">
+              <span class="aspect-icon portrait"></span>
+              <span class="sr-only">Portrait</span>
+            </button>
+            <button data-value="1536x1024" data-label="Landscape" aria-label="Landscape" title="Landscape">
+              <span class="aspect-icon landscape"></span>
+              <span class="sr-only">Landscape</span>
+            </button>
           </div>
         </div>
       </div>
 
       <div>
         <div class="label">Prompt</div>
-        <textarea id="prompt" placeholder="Write a prompt, then click Add to Queue."></textarea>
+        <textarea id="prompt" placeholder="Write a prompt you love, then queue it up."></textarea>
       </div>
 
       <div class="actions">
@@ -274,17 +376,13 @@
         <button class="btn" id="addLinesBtn"><i class="fa-solid fa-list"></i> Add Each Line</button>
         <button class="btn danger" id="clearQueueBtn"><i class="fa-solid fa-trash"></i> Clear Queue</button>
       </div>
-
-      <div class="small sub">
-        Uses backend endpoint <code>/api/generate-image</code>. Don’t put keys in the browser.
-      </div>
     </div>
 
     <!-- Right: Queue -->
     <div class="card">
-      <div class="label" style="display:flex;align-items:center;gap:8px;">
+      <div class="section-title">
         Queue
-        <span class="pill" id="qCount">0 jobs</span>
+        <span class="pill soft" id="qCount">0 jobs</span>
       </div>
 
       <div class="actions" style="margin-bottom:6px;">
@@ -303,7 +401,7 @@
 
   <!-- Output -->
   <div class="card">
-    <div class="label" style="display:flex;align-items:center;gap:8px;">
+    <div class="section-title">
       Output
       <button class="btn small" id="clearOutBtn"><i class="fa-solid fa-broom"></i> Clear</button>
     </div>
@@ -314,16 +412,18 @@
 
 <script>
   // ---------- Segmented controls w/ sliding highlight ----------
-  function setupSeg(id, defaultValue){
+  function setupSeg(id, defaultValue, withLabel=false){
     const seg = document.getElementById(id);
     const buttons = Array.from(seg.querySelectorAll("button"));
     let value = defaultValue;
+    let label = buttons.find(b=>b.dataset.value===defaultValue)?.dataset.label || "";
 
     function setActive(idx){
       buttons.forEach(b=>b.classList.remove("active"));
       buttons[idx].classList.add("active");
       seg.style.setProperty("--index", idx);
       value = buttons[idx].dataset.value;
+      label = buttons[idx].dataset.label || buttons[idx].textContent.trim();
     }
     buttons.forEach((btn, idx)=>{
       btn.addEventListener("click", ()=> setActive(idx));
@@ -332,12 +432,12 @@
     const defIdx = buttons.findIndex(b=>b.dataset.value===defaultValue);
     setActive(defIdx >= 0 ? defIdx : 0);
 
-    return ()=> value;
+    return ()=> withLabel ? { value, label } : value;
   }
 
   const getModel = setupSeg("modelSeg", "gpt-image-1");
   const getQuality = setupSeg("qualitySeg", "low");
-  const getSize = setupSeg("sizeSeg", "1024x1024");
+  const getSize = setupSeg("sizeSeg", "1024x1536", true);
 
   // ---------- Elements ----------
   const promptEl = document.getElementById("prompt");
@@ -374,7 +474,7 @@
           <div class="q-meta">
             <span class="pill">${job.model}</span>
             <span class="pill">${job.quality}</span>
-            <span class="pill">${job.size}</span>
+            <span class="pill">${job.sizeLabel || job.size}</span>
           </div>
         </div>
         <div class="actions" style="justify-content:flex-end;">
@@ -398,11 +498,13 @@
   }
 
   function addJob(prompt){
+    const sizeSelection = getSize();
     jobs.push({
       prompt,
       model: getModel(),
       quality: getQuality(),
-      size: getSize()
+      size: sizeSelection.value,
+      sizeLabel: sizeSelection.label
     });
     renderQueue();
   }
@@ -434,7 +536,7 @@
   });
 
   // ---------- Output cards ----------
-  function addOutputCard({ dataUrl, b64, prompt, model, quality, size }){
+  function addOutputCard({ dataUrl, b64, prompt, model, quality, size, sizeLabel }){
     const item = document.createElement("div");
     item.className = "out-item";
 
@@ -445,7 +547,7 @@
         <div class="out-row">
           <span class="pill">${model}</span>
           <span class="pill">${quality}</span>
-          <span class="pill">${size}</span>
+          <span class="pill">${sizeLabel || size}</span>
 
           <a class="download" download="${filename}.png" href="${dataUrl}">
             <i class="fa-solid fa-download"></i> Download
@@ -505,7 +607,8 @@
           prompt: job.prompt,
           model: job.model,
           quality: job.quality,
-          size: job.size
+          size: job.size,
+          sizeLabel: job.sizeLabel
         });
 
         if(stopRequested){
