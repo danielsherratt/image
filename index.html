@@ -352,7 +352,39 @@
       display:grid;
       place-items:center;
       box-shadow:0 8px 20px rgba(0,0,0,.35);
+      transition:transform .08s ease, box-shadow .2s ease, background .2s ease;
     }
+    .modal-close:hover{transform:translateY(-1px); box-shadow:0 14px 30px rgba(0,0,0,.28); background:rgba(15,23,42,.9);}
+    .modal-close:active{transform:translateY(1px);}
+
+    .modal-content.dialog{
+      background:#fff;
+      color:var(--ink);
+      padding:28px 26px 24px;
+      max-width:480px;
+      width:100%;
+      box-shadow:0 24px 70px rgba(15,23,42,.12);
+      border:1px solid rgba(15,23,42,.06);
+      display:grid;
+      gap:12px;
+    }
+    .modal-content.dialog h3{
+      margin:0;
+      font-size:20px;
+      letter-spacing:-0.3px;
+    }
+    .modal-content.dialog p{margin:0; color:var(--muted); line-height:1.5;}
+    .modal-content.dialog .modal-close{
+      background:rgba(15,23,42,.06);
+      color:var(--ink);
+      box-shadow:0 12px 30px rgba(15,23,42,.12);
+    }
+    .confirm-header{display:flex; gap:14px; align-items:flex-start;}
+    .confirm-icon{width:46px; height:46px; border-radius:14px; display:grid; place-items:center; background:rgba(239,68,68,.08); color:var(--danger); font-size:18px; box-shadow: inset 0 0 0 1px rgba(239,68,68,.12);}
+    .confirm-actions{display:flex; gap:10px; justify-content:flex-end; margin-top:6px;}
+    .confirm-actions .btn{box-shadow:none;}
+    .confirm-actions .btn.danger{background:linear-gradient(120deg, #ef4444, #f97316); color:#fff; border-color:transparent; box-shadow:0 12px 35px rgba(239,68,68,.28);}
+    .confirm-actions .btn.danger:hover{filter:brightness(1.02);}
 
     /* Header */
     .hero{
@@ -505,6 +537,25 @@
 
 </div>
 
+<div class="modal-backdrop" id="confirmModal" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="modal-content dialog">
+    <button class="modal-close" id="closeConfirm" aria-label="Close confirmation dialog">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+    <div class="confirm-header">
+      <div class="confirm-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+      <div>
+        <h3>Clear saved images?</h3>
+        <p id="confirmMessage">This will remove all saved images from this browser. You won't be able to undo this.</p>
+      </div>
+    </div>
+    <div class="confirm-actions">
+      <button class="btn" id="cancelConfirm">Cancel</button>
+      <button class="btn danger" id="confirmDelete">Delete all</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-backdrop" id="imageModal" aria-hidden="true">
   <div class="modal-content">
     <button class="modal-close" id="closeModal" aria-label="Close image preview">
@@ -555,6 +606,11 @@
   const imageModalEl = document.getElementById("imageModal");
   const modalImageEl = document.getElementById("modalImage");
   const closeModalEl = document.getElementById("closeModal");
+  const confirmModalEl = document.getElementById("confirmModal");
+  const closeConfirmEl = document.getElementById("closeConfirm");
+  const cancelConfirmEl = document.getElementById("cancelConfirm");
+  const confirmDeleteEl = document.getElementById("confirmDelete");
+  const confirmMessageEl = document.getElementById("confirmMessage");
 
   const addBtn = document.getElementById("addBtn");
   const addLinesBtn = document.getElementById("addLinesBtn");
@@ -621,6 +677,26 @@
     if(e.target === imageModalEl) closeModal();
   });
   closeModalEl.addEventListener("click", closeModal);
+
+  function openConfirmDialog(){
+    confirmModalEl.classList.add("show");
+    confirmModalEl.setAttribute("aria-hidden", "false");
+    confirmDeleteEl.focus();
+  }
+
+  function closeConfirmDialog(){
+    confirmModalEl.classList.remove("show");
+    confirmModalEl.setAttribute("aria-hidden", "true");
+  }
+
+  confirmModalEl.addEventListener("click", (e)=>{
+    if(e.target === confirmModalEl) closeConfirmDialog();
+  });
+  closeConfirmEl.addEventListener("click", closeConfirmDialog);
+  cancelConfirmEl.addEventListener("click", closeConfirmDialog);
+  document.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape"){ closeModal(); closeConfirmDialog(); }
+  });
 
   function updateProgress(current, total){
     if(total <= 0){
@@ -709,11 +785,15 @@
   });
 
   clearOutBtn.addEventListener("click", ()=>{
-    const ok = window.confirm("Are you sure you want to clear all saved images?");
-    if(!ok) return;
+    confirmMessageEl.textContent = "This will remove every saved image from this browser. This can't be undone.";
+    openConfirmDialog();
+  });
+
+  confirmDeleteEl.addEventListener("click", ()=>{
     outputEl.innerHTML = "";
     savedOutputs.length = 0;
     persistOutputs();
+    closeConfirmDialog();
   });
 
   // ---------- Output cards ----------
