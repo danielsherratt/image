@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Image Generator</title>
+  <title>Image Creator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Font Awesome (icons) -->
@@ -12,14 +12,14 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&display=swap');
     :root{
-      --bg:#f4f6fb;
+      --bg:#fef7f2;
       --card:#ffffff;
       --ink:#0f172a;
       --muted:#5b6474;
       --border:#e2e8f0;
-      --accent:#4f46e5;
-      --accent-2:#06b6d4;
-      --accent-soft:#eef2ff;
+      --accent:#d946ef;
+      --accent-2:#f97316;
+      --accent-soft:#fff1f7;
       --danger:#ef4444;
       --radius:16px;
     }
@@ -27,7 +27,7 @@
     body{
       margin:0;
       font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background: radial-gradient(circle at 10% 20%, #eef2ff 0, #f8fafc 32%, #f4f6fb 60%);
+      background: radial-gradient(circle at 10% 20%, #fff7fb 0, #fff4ef 32%, #fef7f2 60%);
       color: var(--ink);
       padding: 18px;
     }
@@ -46,7 +46,7 @@
     }
     .card.frosted{
       backdrop-filter: blur(10px);
-      border-color: rgba(79,70,229,.15);
+      border-color: rgba(217,70,239,.18);
     }
     h1{
       margin:0 0 4px 0;
@@ -185,7 +185,7 @@
       background:linear-gradient(120deg, var(--accent), var(--accent-2));
       color:#fff;
       border-color:transparent;
-      box-shadow:0 12px 35px rgba(79,70,229,.35);
+      box-shadow:0 12px 35px rgba(217,70,239,.28);
     }
     .btn.primary:hover{filter:brightness(1.05);}
     .btn.danger{color:#b91c1c; border-color:#fecaca; background:#fff5f5;}
@@ -363,22 +363,16 @@
     .logo{
       width:48px; height:48px;
       border-radius:14px;
-      background:radial-gradient(circle at 20% 20%, #ffffff 10%, rgba(255,255,255,0) 45%),
-                 linear-gradient(135deg, var(--accent), var(--accent-2));
+      background:linear-gradient(135deg, var(--accent), var(--accent-2));
       display:grid; place-items:center;
-      color:#fff;
-      font-weight:800;
-      letter-spacing:-0.5px;
-      box-shadow:0 12px 30px rgba(79,70,229,.45);
-      position:relative;
+      box-shadow:0 12px 30px rgba(217,70,239,.35);
       overflow:hidden;
     }
-    .logo::after{
-      content:"";
-      position:absolute;
-      inset:8px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,.35);
+    .logo img{
+      width:38px; height:38px;
+      object-fit:cover;
+      border-radius:10px;
+      filter: drop-shadow(0 4px 12px rgba(0,0,0,.18));
     }
     .pill.soft{background:var(--accent-soft); color:var(--accent); font-weight:700;}
     .section-title{
@@ -408,9 +402,11 @@
   <!-- Header -->
   <div class="card frosted">
     <div class="hero">
-      <div class="logo">IQ</div>
+      <div class="logo">
+        <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI2NCIgaGVpZ2h0PSI2NCIgdmlld0JveD0iMCAwIDY0IDY0IiBmaWxsPSJub25lIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjgiIHkxPSI4IiB4Mj0iNTYiIHkyPSI1NiIgZ3JhZGllbnRVbml0cz0idXNlclNwYWNlT25Vc2UiPgogICAgICA8c3RvcCBzdG9wLWNvbG9yPSIjZDk0NmVmIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMSIgc3RvcC1jb2xvcj0iI2Y5NzMxNiIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ2xvdyIgeDE9IjE2IiB5MT0iMTYiIHgyPSI0OCIgeTI9IjQ4IiBncmFkaWVudFVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxzdG9wIHN0b3AtY29sb3I9IiNmZGU2OGEiIHN0b3Atb3BhY2l0eT0iMC44NSIvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEiIHN0b3AtY29sb3I9IiNmOWE4ZDQiIHN0b3Atb3BhY2l0eT0iMC45Ii8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHJ4PSIxNCIgZmlsbD0idXJsKCNnKSIvPgogIDxyZWN0IHg9IjEyIiB5PSIxMiIgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiByeD0iMTIiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC4yKSIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPGNpcmNsZSBjeD0iMzIiIGN5PSIzMiIgcj0iMTEiIGZpbGw9InVybCgjZ2xvdykiIHN0cm9rZT0id2hpdGUiIHN0cm9rZS13aWR0aD0iMiIgLz4KICA8cGF0aCBkPSJNMjIgNDJjMC01LjUyMyA0LjQ3Ny0xMCAxMC0xMHMxMCA0LjQ3NyAxMCAxMCIgc3Ryb2tlPSJ3aGl0ZSIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiIG9wYWNpdHk9IjAuOSIvPgogIDxjaXJjbGUgY3g9IjI2IiBjeT0iMjgiIHI9IjMiIGZpbGw9IndoaXRlIi8+CiAgPGNpcmNsZSBjeD0iMzgiIGN5PSIyNiIgcj0iNCIgZmlsbD0id2hpdGUiLz4KPC9zdmc+Cg==" alt="Image Creator avatar" />
+      </div>
       <div>
-        <h1>Image Generator</h1>
+        <h1>Image Creator</h1>
       </div>
     </div>
   </div>
@@ -479,7 +475,7 @@
 
       <div class="actions queue-actions" style="margin-bottom:6px;">
         <button class="btn primary" id="runBtn">
-          <i class="fa-solid fa-play"></i> Run Queue
+          <i class="fa-solid fa-play"></i> Create Images
         </button>
         <button class="btn" id="stopBtn" disabled>
           <i class="fa-solid fa-stop"></i> Stop After Current
@@ -501,7 +497,7 @@
   <!-- Output -->
   <div class="card">
     <div class="section-title">
-      Output
+      Your Images
       <button class="btn small" id="clearOutBtn"><i class="fa-solid fa-broom"></i> Clear</button>
     </div>
     <div class="out-grid" id="output"></div>
@@ -713,6 +709,8 @@
   });
 
   clearOutBtn.addEventListener("click", ()=>{
+    const ok = window.confirm("Are you sure you want to clear all saved images?");
+    if(!ok) return;
     outputEl.innerHTML = "";
     savedOutputs.length = 0;
     persistOutputs();
