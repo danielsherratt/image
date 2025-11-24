@@ -286,30 +286,7 @@
       word-break:break-all;
     }
 
-    /* Progress bar */
-    .progress{
-      position:relative;
-      height:12px;
-      background:#e2e8f0;
-      border-radius:999px;
-      overflow:hidden;
-      border:1px solid var(--border);
-      box-shadow: inset 0 1px 2px rgba(15,23,42,.05);
-    }
-    .progress .bar{
-      position:absolute;
-      inset:0;
-      width:0%;
-      background:linear-gradient(120deg, var(--accent), var(--accent-2));
-      transition: width .2s ease;
-    }
-    .progress-row{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      font-size:13px;
-      color:var(--muted);
-    }
+    .seg.small button{font-size:13px;}
 
     /* Modal */
     .modal-backdrop{
@@ -436,7 +413,7 @@
       .hero{flex-direction:column; align-items:flex-start;}
       .actions{gap:6px;}
       .actions.action-row,
-      .actions.queue-actions{flex-wrap:wrap; justify-content:flex-start;}
+      .actions.queue-actions{flex-wrap:wrap; justify-content:center;}
       .seg button{padding:8px 10px;}
     }
   </style>
@@ -502,6 +479,15 @@
         <textarea id="prompt" placeholder="Write a prompt you love, then queue it up."></textarea>
       </div>
 
+      <div>
+        <div class="label">Enhance prompt with ChatGPT</div>
+        <div class="seg small" id="enhanceSeg" style="--count:2; --index:1;">
+          <div class="slider"></div>
+          <button data-value="yes">Yes</button>
+          <button data-value="no" class="active">No</button>
+        </div>
+      </div>
+
       <div class="actions action-row">
         <button class="btn" id="addBtn"><i class="fa-solid fa-plus"></i> Add to Queue</button>
       </div>
@@ -524,13 +510,6 @@
           <i class="fa-solid fa-play"></i> Create Images
         </button>
         <span class="status" id="status"></span>
-      </div>
-
-      <div class="progress-row" id="progressRow" style="display:none;">
-        <div class="progress" aria-hidden="true">
-          <div class="bar" id="progressBar"></div>
-        </div>
-        <span id="progressText"></span>
       </div>
 
       <div class="queue" id="queue"></div>
@@ -611,9 +590,6 @@
   const outputEl = document.getElementById("output");
   const statusEl = document.getElementById("status");
   const qCountEl = document.getElementById("qCount");
-  const progressRowEl = document.getElementById("progressRow");
-  const progressBarEl = document.getElementById("progressBar");
-  const progressTextEl = document.getElementById("progressText");
   const imageModalEl = document.getElementById("imageModal");
   const modalImageEl = document.getElementById("modalImage");
   const closeModalEl = document.getElementById("closeModal");
@@ -628,6 +604,7 @@
   const clearQueueBtn = document.getElementById("clearQueueBtn");
   const runBtn = document.getElementById("runBtn");
   const clearOutBtn = document.getElementById("clearOutBtn");
+  const getEnhance = setupSeg("enhanceSeg", "no");
 
   const STORAGE_KEY = "image-generator-outputs";
   const savedOutputs = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
@@ -725,19 +702,6 @@
     }
   });
 
-  function updateProgress(current, total){
-    if(total <= 0){
-      progressRowEl.style.display = "none";
-      progressBarEl.style.width = "0%";
-      progressTextEl.textContent = "";
-      return;
-    }
-    const pct = Math.round((current / total) * 100);
-    progressRowEl.style.display = "flex";
-    progressBarEl.style.width = `${pct}%`;
-    progressTextEl.textContent = `${current}/${total}`;
-  }
-
   // ---------- Queue state ----------
   const jobs = [];
   let running = false;
@@ -765,6 +729,7 @@
             <span class="pill">${job.model}</span>
             <span class="pill">${job.quality}</span>
             <span class="pill">${job.sizeLabel || job.size}</span>
+            <span class="pill">Enhance: ${job.enhance === "yes" ? "Yes" : "No"}</span>
           </div>
         </div>
         <div class="actions" style="justify-content:flex-end;">
@@ -794,7 +759,8 @@
       model: getModel(),
       quality: getQuality(),
       size: sizeSelection.value,
-      sizeLabel: sizeSelection.label
+      sizeLabel: sizeSelection.label,
+      enhance: getEnhance()
     });
     renderQueue();
   }
@@ -854,7 +820,7 @@
   });
 
   // ---------- Output cards ----------
-  function addOutputCard({ dataUrl, prompt, model, quality, size, sizeLabel, createdAt }, shouldSave=true){
+  function addOutputCard({ dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt }, shouldSave=true){
     const item = document.createElement("div");
     item.className = "out-item";
 
@@ -866,6 +832,7 @@
           <span class="pill">${model}</span>
           <span class="pill">${quality}</span>
           <span class="pill">${sizeLabel || size}</span>
+          <span class="pill">${enhance === "yes" ? "ChatGPT enhanced" : "Original prompt"}</span>
 
           <a class="download" download="${filename}.png" href="${dataUrl}">
             <i class="fa-solid fa-download"></i> Download
@@ -879,7 +846,7 @@
     outputEl.prepend(item);
 
     if(shouldSave){
-      const entry = { dataUrl, prompt, model, quality, size, sizeLabel, createdAt: createdAt || Date.now() };
+      const entry = { dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt: createdAt || Date.now() };
       // Compress before persisting to reduce localStorage footprint
       compressForStorage(dataUrl).then(minifiedDataUrl => {
         const stored = { ...entry, dataUrl: minifiedDataUrl };
@@ -891,6 +858,18 @@
   }
 
   savedOutputs.forEach(entry => addOutputCard(entry, false));
+
+  async function enhancePrompt(prompt){
+    const res = await fetch("/api/enhance-prompt", {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ prompt })
+    });
+    const text = await res.text().catch(()=> "");
+    if(!res.ok) throw new Error(text || `Enhance failed (${res.status})`);
+    const data = JSON.parse(text || "{}");
+    return data.prompt || prompt;
+  }
 
   // ---------- API call ----------
   async function generateOne(job){
@@ -918,40 +897,47 @@
     running = true;
     stopRequested = false;
     updateRunButton("running");
-    const total = jobs.length;
-    updateProgress(0, total);
 
     try{
-      for(let i=0; i<jobs.length; i++){
-        setStatus(`Running ${i+1}/${jobs.length}…`);
-        const job = jobs[i];
+      while(jobs.length > 0){
+        const job = jobs[0];
 
-        const data = await generateOne(job);
+        let workingPrompt = job.prompt;
+        if(job.enhance === "yes"){
+          setStatus("Enhancing prompt with ChatGPT…");
+          workingPrompt = await enhancePrompt(job.prompt);
+        }else{
+          setStatus("Creating image…");
+        }
+
+        const data = await generateOne({ ...job, prompt: workingPrompt });
         // expecting { images: [{ dataUrl }] }
         const img = data?.images?.[0];
         if(!img?.dataUrl) throw new Error("No image returned.");
 
         addOutputCard({
           dataUrl: img.dataUrl,
-          prompt: job.prompt,
+          prompt: workingPrompt,
           model: job.model,
           quality: job.quality,
           size: job.size,
-          sizeLabel: job.sizeLabel
+          sizeLabel: job.sizeLabel,
+          enhance: job.enhance
         });
 
-        updateProgress(i+1, total);
+        jobs.shift();
+        renderQueue();
 
         if(stopRequested){
           setStatus("Stopped after current job.");
           break;
         }
       }
+      if(!stopRequested) setStatus("");
     }catch(err){
       console.error(err);
       setStatus(err.message || "Something went wrong.", true);
     }finally{
-      updateProgress(0,0);
       running = false;
       stopRequested = false;
       updateRunButton("idle");
