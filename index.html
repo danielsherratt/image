@@ -506,9 +506,6 @@
         <button class="btn primary" id="runBtn">
           <i class="fa-solid fa-play"></i> Create Images
         </button>
-        <button class="btn" id="stopBtn" disabled>
-          <i class="fa-solid fa-stop"></i> Stop After Current
-        </button>
         <span class="status" id="status"></span>
       </div>
 
@@ -613,7 +610,6 @@
   const addBtn = document.getElementById("addBtn");
   const clearQueueBtn = document.getElementById("clearQueueBtn");
   const runBtn = document.getElementById("runBtn");
-  const stopBtn = document.getElementById("stopBtn");
   const clearOutBtn = document.getElementById("clearOutBtn");
 
   const STORAGE_KEY = "image-generator-outputs";
@@ -729,6 +725,16 @@
   const jobs = [];
   let running = false;
   let stopRequested = false;
+
+  function updateRunButton(state="idle"){
+    if(state === "running"){
+      runBtn.innerHTML = `<i class="fa-solid fa-stop"></i> Stop After Current`;
+    }else if(state === "stopping"){
+      runBtn.innerHTML = `<i class="fa-solid fa-hourglass-half"></i> Stopping…`;
+    }else{
+      runBtn.innerHTML = `<i class="fa-solid fa-play"></i> Create Images`;
+    }
+  }
 
   function renderQueue(){
     queueEl.innerHTML = "";
@@ -894,8 +900,7 @@
 
     running = true;
     stopRequested = false;
-    runBtn.disabled = true;
-    stopBtn.disabled = false;
+    updateRunButton("running");
     const total = jobs.length;
     updateProgress(0, total);
 
@@ -931,17 +936,21 @@
     }finally{
       updateProgress(0,0);
       running = false;
-      runBtn.disabled = false;
-      stopBtn.disabled = true;
+      stopRequested = false;
+      updateRunButton("idle");
     }
   }
 
-  runBtn.addEventListener("click", runQueue);
-
-  stopBtn.addEventListener("click", ()=>{
-    if(!running) return;
-    stopRequested = true;
-    setStatus("Stop requested… will stop after current job.");
+  runBtn.addEventListener("click", ()=>{
+    if(running){
+      if(!stopRequested){
+        stopRequested = true;
+        updateRunButton("stopping");
+        setStatus("Stop requested… will stop after current job.");
+      }
+      return;
+    }
+    runQueue();
   });
 
   renderQueue();
