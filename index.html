@@ -152,6 +152,29 @@
       margin:0 0 6px 4px;
     }
 
+    .prompt-row{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+    }
+    .prompt-row .prompt-input{flex:1;}
+
+    .image-chip{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      padding:8px 10px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#fff;
+      margin-top:8px;
+      box-shadow:0 10px 24px rgba(15,23,42,.05);
+      transition: opacity .2s ease;
+    }
+    .image-chip:not(.show){display:none; opacity:0;}
+    .image-thumb{width:40px; height:40px; border-radius:10px; object-fit:cover; border:1px solid var(--border);}
+    .file-name{font-weight:600;}
+
     textarea, input[type="text"]{
       width:100%;
       border:1px solid var(--border);
@@ -484,7 +507,23 @@
 
       <div>
         <div class="label">Prompt</div>
-        <textarea id="prompt" placeholder="Write a prompt you love, then queue it up."></textarea>
+        <div class="prompt-row">
+          <button class="btn icon-only" id="imageBtn" aria-label="Add an image">
+            <i class="fa-solid fa-camera"></i>
+          </button>
+          <textarea class="prompt-input" id="prompt" placeholder="Write a prompt you love, then queue it up."></textarea>
+        </div>
+        <input type="file" accept="image/*" capture="environment" id="imageInput" class="sr-only" />
+        <div class="image-chip" id="imagePreview" aria-live="polite">
+          <img src="" alt="Selected image preview" class="image-thumb" />
+          <div>
+            <div class="file-name" id="imageName"></div>
+            <div class="sub" style="margin:0;">Attached image will be included with your prompt.</div>
+          </div>
+          <button class="btn small danger" id="removeImageBtn" aria-label="Remove attached image">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
       </div>
 
       <div class="actions action-row">
@@ -519,7 +558,10 @@
   <div class="card">
     <div class="section-title">
       Your Images
-      <button class="btn small" id="clearOutBtn"><i class="fa-solid fa-broom"></i> Remove</button>
+      <div class="section-actions">
+        <button class="btn small" id="downloadAllBtn"><i class="fa-solid fa-download"></i> Download All</button>
+        <button class="btn small" id="clearOutBtn"><i class="fa-solid fa-broom"></i> Remove</button>
+      </div>
     </div>
     <div class="out-grid" id="output"></div>
   </div>
@@ -594,6 +636,12 @@
   const outputEl = document.getElementById("output");
   const statusEl = document.getElementById("status");
   const qCountEl = document.getElementById("qCount");
+  const imageBtn = document.getElementById("imageBtn");
+  const imageInput = document.getElementById("imageInput");
+  const imagePreviewEl = document.getElementById("imagePreview");
+  const imageThumbEl = imagePreviewEl.querySelector("img");
+  const imageNameEl = document.getElementById("imageName");
+  const removeImageBtn = document.getElementById("removeImageBtn");
   const imageModalEl = document.getElementById("imageModal");
   const modalImageEl = document.getElementById("modalImage");
   const closeModalEl = document.getElementById("closeModal");
@@ -608,11 +656,13 @@
   const clearQueueBtn = document.getElementById("clearQueueBtn");
   const runBtn = document.getElementById("runBtn");
   const clearOutBtn = document.getElementById("clearOutBtn");
+  const downloadAllBtn = document.getElementById("downloadAllBtn");
   const getEnhance = setupSeg("enhanceSeg", "no");
 
   const DEFAULT_MODEL = "gpt-image-1";
   const STORAGE_KEY = "image-generator-outputs";
   const savedOutputs = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+  let attachedImage = null;
 
   async function compressForStorage(dataUrl){
     return new Promise(resolve => {
@@ -643,6 +693,21 @@
     statusEl.classList.toggle("error", !!isError);
   }
 
+  function setAttachedImage(dataUrl, name){
+    attachedImage = { dataUrl, name: name || "camera-image" };
+    imageThumbEl.src = dataUrl;
+    imageNameEl.textContent = attachedImage.name;
+    imagePreviewEl.classList.add("show");
+  }
+
+  function clearAttachedImage(){
+    attachedImage = null;
+    imageThumbEl.src = "";
+    imageNameEl.textContent = "";
+    imagePreviewEl.classList.remove("show");
+    imageInput.value = "";
+  }
+
   function persistOutputs(){
     try{
       localStorage.setItem(STORAGE_KEY, JSON.stringify(savedOutputs));
@@ -651,6 +716,16 @@
       setStatus("Could not save images locally because storage is full.", true);
     }
   }
+
+  imageBtn.addEventListener("click", ()=> imageInput.click());
+  removeImageBtn.addEventListener("click", clearAttachedImage);
+  imageInput.addEventListener("change", ()=>{
+    const file = imageInput.files?.[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=> setAttachedImage(reader.result, file.name || "camera-image" );
+    reader.readAsDataURL(file);
+  });
 
   function openModal(src, alt){
     modalImageEl.src = src;
@@ -741,6 +816,7 @@
             <span class="pill">${QUALITY_LABELS[job.quality] || job.quality}</span>
             <span class="pill">${job.sizeLabel || job.size}</span>
           <span class="pill">Prompt: ${job.enhance === "yes" ? "GPT 5.1" : "Original"}</span>
+          ${job.image ? `<span class="pill soft"><i class="fa-solid fa-image"></i> Image</span>` : ""}
           </div>
         </div>
         <div class="actions" style="justify-content:flex-end;">
@@ -765,20 +841,23 @@
 
   function addJob(prompt){
     const sizeSelection = getSize();
+    const promptText = prompt || (attachedImage ? "Use the attached image as inspiration." : "");
     jobs.push({
-      prompt,
+      prompt: promptText,
       model: DEFAULT_MODEL,
       quality: getQuality(),
       size: sizeSelection.value,
       sizeLabel: sizeSelection.label,
-      enhance: getEnhance()
+      enhance: getEnhance(),
+      image: attachedImage ? { ...attachedImage } : null
     });
     renderQueue();
+    clearAttachedImage();
   }
 
   addBtn.addEventListener("click", ()=>{
     const p = promptEl.value.trim();
-    if(!p) return setStatus("Enter a prompt first.", true);
+    if(!p && !attachedImage) return setStatus("Add a prompt or attach an image first.", true);
     addJob(p);
     promptEl.value = "";
     setStatus("");
@@ -800,7 +879,7 @@
     if(e.key === "Enter" && e.ctrlKey){
       e.preventDefault();
       const p = promptEl.value.trim();
-      if(p){
+      if(p || attachedImage){
         addJob(p);
         promptEl.value = "";
         setStatus("");
@@ -830,35 +909,75 @@
     });
   });
 
+  function triggerDownload(dataUrl, filename){
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = filename || "image.png";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+
+  downloadAllBtn.addEventListener("click", ()=>{
+    const images = Array.from(outputEl.querySelectorAll(".out-item img"));
+    if(images.length === 0) return setStatus("No images to download.", true);
+    images.forEach((img, idx)=>{
+      const name = img.dataset.filename || `image-${idx+1}.png`;
+      triggerDownload(img.src, name);
+    });
+    setStatus(`Downloading ${images.length} image${images.length===1?"":"s"}…`);
+  });
+
   // ---------- Output cards ----------
   function addOutputCard({ dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt }, shouldSave=true){
     const item = document.createElement("div");
+    const created = createdAt || Date.now();
     item.className = "out-item";
+    item.dataset.createdAt = String(created);
 
-    const filename = prompt.slice(0,40).replace(/[^\w\-]+/g,"_") || "image";
+    const filename = (prompt.slice(0,40).replace(/[^\w\-]+/g,"_") || "image") + ".png";
     item.innerHTML = `
-      <img src="${dataUrl}" alt="${prompt.replace(/"/g,"&quot;")}"/>
+      <img src="${dataUrl}" alt="${prompt.replace(/"/g,"&quot;")}" data-filename="${filename}"/>
       <div class="out-meta">
         <div class="out-row">
           <span class="pill">${QUALITY_LABELS[quality] || quality}</span>
           <span class="pill">${sizeLabel || size}</span>
           <span class="pill">Prompt: ${enhance === "yes" ? "GPT 5.1" : "Original"}</span>
 
-          <a class="download" download="${filename}.png" href="${dataUrl}">
+          <a class="download" download="${filename}" href="${dataUrl}">
             <i class="fa-solid fa-download"></i> Download
           </a>
+          <button class="btn small danger icon-only" data-delete aria-label="Delete image">
+            <i class="fa-solid fa-trash"></i>
+          </button>
         </div>
         <div>${prompt}</div>
       </div>
     `;
     const imgEl = item.querySelector("img");
     imgEl.addEventListener("click", ()=> openModal(dataUrl, prompt));
+
+    const deleteBtn = item.querySelector("[data-delete]");
+    const removeSavedCopy = ()=>{
+      const idx = savedOutputs.findIndex(o => String(o.createdAt) === String(created));
+      if(idx >= 0){
+        savedOutputs.splice(idx,1);
+        persistOutputs();
+      }
+    };
+    deleteBtn.addEventListener("click", ()=>{
+      item.remove();
+      removeSavedCopy();
+    });
+
     outputEl.prepend(item);
 
     if(shouldSave){
-      const entry = { dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt: createdAt || Date.now() };
+      const entry = { dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt: created };
       // Compress before persisting to reduce localStorage footprint
       compressForStorage(dataUrl).then(minifiedDataUrl => {
+        // If the card was deleted before compression finishes, skip saving.
+        if(!item.isConnected) return;
         const stored = { ...entry, dataUrl: minifiedDataUrl };
         savedOutputs.unshift(stored);
         if(savedOutputs.length > 20) savedOutputs.length = 20;
@@ -899,6 +1018,13 @@
     return JSON.parse(text);
   }
 
+  function buildPromptWithImage(job){
+    if(job?.image?.dataUrl){
+      return `${job.prompt || ""}\n\nUse this reference image (base64 encoded): ${job.image.dataUrl}`;
+    }
+    return job.prompt;
+  }
+
   // ---------- Run queue sequentially ----------
   async function runQueue(){
     if(running) return;
@@ -923,14 +1049,16 @@
 
         setJobStatus(0, "Creating");
 
-        const data = await generateOne({ ...job, prompt: workingPrompt });
+        const promptForApi = buildPromptWithImage({ ...job, prompt: workingPrompt });
+        const data = await generateOne({ ...job, prompt: promptForApi });
         // expecting { images: [{ dataUrl }] }
         const img = data?.images?.[0];
         if(!img?.dataUrl) throw new Error("No image returned.");
 
+        const displayPrompt = job.image ? `${workingPrompt}\n(Attached image included.)` : workingPrompt;
         addOutputCard({
           dataUrl: img.dataUrl,
-          prompt: workingPrompt,
+          prompt: displayPrompt,
           model: DEFAULT_MODEL,
           quality: job.quality,
           size: job.size,
