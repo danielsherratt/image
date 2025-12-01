@@ -754,6 +754,29 @@
     });
   }
 
+  async function compressForPrompt(dataUrl){
+    return new Promise(resolve => {
+      const img = new Image();
+      img.onload = ()=>{
+        try{
+          const maxSide = 512;
+          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.max(1, Math.round(img.width * scale));
+          canvas.height = Math.max(1, Math.round(img.height * scale));
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.4));
+        }catch(err){
+          console.warn("Failed to shrink image for prompt", err);
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = ()=> resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }
+
   function setStatus(msg, isError=false){
     statusEl.textContent = msg || "";
     statusEl.classList.toggle("error", !!isError);
@@ -764,6 +787,12 @@
     imageThumbEl.src = dataUrl;
     imageNameEl.textContent = attachedImage.name;
     imagePreviewEl.classList.add("show");
+
+    compressForPrompt(dataUrl).then(minified => {
+      if(attachedImage && attachedImage.dataUrl === dataUrl){
+        attachedImage.promptDataUrl = minified;
+      }
+    });
   }
 
   function clearAttachedImage(){
@@ -1132,8 +1161,13 @@
   }
 
   function buildPromptWithImage(job){
+    const MAX_PROMPT_IMAGE_CHARS = 25000;
     if(job?.image?.dataUrl){
-      return `${job.prompt || ""}\n\nUse this reference image (base64 encoded): ${job.image.dataUrl}`;
+      const reference = job.image.promptDataUrl || job.image.dataUrl;
+      const safeRef = reference?.length > MAX_PROMPT_IMAGE_CHARS
+        ? `${reference.slice(0, MAX_PROMPT_IMAGE_CHARS)}... [truncated]`
+        : reference;
+      return `${job.prompt || ""}\n\nUse this reference image (base64 encoded and resized): ${safeRef}`;
     }
     return job.prompt;
   }
