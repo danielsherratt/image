@@ -1152,6 +1152,7 @@
         model: DEFAULT_MODEL,
         quality: job.quality,
         size: job.size,
+        image: job.image?.promptDataUrl || job.image?.dataUrl || undefined,
         n: 1
       })
     });
