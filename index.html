@@ -157,6 +157,7 @@
       gap:10px;
       align-items:flex-start;
     }
+    .prompt-row-pos{position:relative;}
     .prompt-row .prompt-input{flex:1;}
 
     .image-chip{
@@ -187,6 +188,50 @@
     }
     textarea{min-height:120px; resize:vertical; font-family:"Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;}
     textarea::placeholder{color:#94a3b8;}
+
+    .image-menu{
+      position:absolute;
+      top:42px;
+      left:0;
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:14px;
+      box-shadow:0 18px 50px rgba(15,23,42,.15);
+      padding:8px;
+      display:grid;
+      gap:6px;
+      min-width:220px;
+      z-index:10;
+      opacity:0;
+      pointer-events:none;
+      transform: translateY(-4px);
+      transition: opacity .14s ease, transform .14s ease;
+    }
+    .image-menu.show{
+      opacity:1;
+      pointer-events:auto;
+      transform: translateY(0);
+    }
+    .image-menu button{
+      border:none;
+      background:#f8fafc;
+      padding:10px 12px;
+      border-radius:10px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      cursor:pointer;
+      color:var(--ink);
+      font-weight:600;
+      text-align:left;
+      transition: background .15s ease, box-shadow .15s ease;
+      box-shadow: inset 0 0 0 1px var(--border);
+    }
+    .image-menu button:hover{
+      background:#eef2ff;
+      box-shadow: inset 0 0 0 1px #cbd5e1;
+    }
+    .image-menu .desc{font-size:13px; color:var(--muted); font-weight:500;}
 
     /* Buttons */
     .btn{
@@ -507,13 +552,30 @@
 
       <div>
         <div class="label">Prompt</div>
-        <div class="prompt-row">
+        <div class="prompt-row prompt-row-pos">
           <button class="btn icon-only" id="imageBtn" aria-label="Add an image">
             <i class="fa-solid fa-camera"></i>
           </button>
+          <div class="image-menu" id="imageMenu" role="menu" aria-hidden="true">
+            <button id="captureOption" role="menuitem">
+              <i class="fa-solid fa-camera"></i>
+              <div>
+                Take photo
+                <div class="desc">Open your camera to snap a reference image.</div>
+              </div>
+            </button>
+            <button id="uploadOption" role="menuitem">
+              <i class="fa-solid fa-image"></i>
+              <div>
+                Choose from device
+                <div class="desc">Pick a photo from your library or files.</div>
+              </div>
+            </button>
+          </div>
           <textarea class="prompt-input" id="prompt" placeholder="Write a prompt you love, then queue it up."></textarea>
         </div>
-        <input type="file" accept="image/*" capture="environment" id="imageInput" class="sr-only" />
+        <input type="file" accept="image/*" capture="environment" id="cameraInput" class="sr-only" />
+        <input type="file" accept="image/*" id="fileInput" class="sr-only" />
         <div class="image-chip" id="imagePreview" aria-live="polite">
           <img src="" alt="Selected image preview" class="image-thumb" />
           <div>
@@ -637,7 +699,11 @@
   const statusEl = document.getElementById("status");
   const qCountEl = document.getElementById("qCount");
   const imageBtn = document.getElementById("imageBtn");
-  const imageInput = document.getElementById("imageInput");
+  const imageMenu = document.getElementById("imageMenu");
+  const captureOption = document.getElementById("captureOption");
+  const uploadOption = document.getElementById("uploadOption");
+  const cameraInput = document.getElementById("cameraInput");
+  const fileInput = document.getElementById("fileInput");
   const imagePreviewEl = document.getElementById("imagePreview");
   const imageThumbEl = imagePreviewEl.querySelector("img");
   const imageNameEl = document.getElementById("imageName");
@@ -705,7 +771,8 @@
     imageThumbEl.src = "";
     imageNameEl.textContent = "";
     imagePreviewEl.classList.remove("show");
-    imageInput.value = "";
+    cameraInput.value = "";
+    fileInput.value = "";
   }
 
   function persistOutputs(){
@@ -717,15 +784,45 @@
     }
   }
 
-  imageBtn.addEventListener("click", ()=> imageInput.click());
-  removeImageBtn.addEventListener("click", clearAttachedImage);
-  imageInput.addEventListener("change", ()=>{
-    const file = imageInput.files?.[0];
+  function toggleImageMenu(force){
+    const nextState = typeof force === "boolean" ? force : !imageMenu.classList.contains("show");
+    imageMenu.classList.toggle("show", nextState);
+    imageMenu.setAttribute("aria-hidden", nextState ? "false" : "true");
+  }
+
+  function handleFileSelection(file){
     if(!file) return;
     const reader = new FileReader();
     reader.onload = ()=> setAttachedImage(reader.result, file.name || "camera-image" );
     reader.readAsDataURL(file);
+  }
+
+  imageBtn.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    toggleImageMenu();
   });
+
+  captureOption.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    toggleImageMenu(false);
+    cameraInput.click();
+  });
+
+  uploadOption.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    toggleImageMenu(false);
+    fileInput.click();
+  });
+
+  document.addEventListener("click", (e)=>{
+    if(!imageMenu.contains(e.target) && e.target !== imageBtn){
+      toggleImageMenu(false);
+    }
+  });
+
+  removeImageBtn.addEventListener("click", clearAttachedImage);
+  cameraInput.addEventListener("change", ()=> handleFileSelection(cameraInput.files?.[0]));
+  fileInput.addEventListener("change", ()=> handleFileSelection(fileInput.files?.[0]));
 
   function openModal(src, alt){
     modalImageEl.src = src;
@@ -890,9 +987,17 @@
   });
 
   clearQueueBtn.addEventListener("click", ()=>{
-    jobs.length = 0;
-    renderQueue();
-    setStatus("");
+    openConfirmDialog({
+      title: "Clear the entire queue?",
+      message: "All queued prompts will be removed. This won't affect saved images.",
+      confirmLabel: "Clear queue",
+      onConfirm: ()=>{
+        jobs.length = 0;
+        renderQueue();
+        setStatus("");
+        closeConfirmDialog();
+      }
+    });
   });
 
   clearOutBtn.addEventListener("click", ()=>{
@@ -966,8 +1071,16 @@
       }
     };
     deleteBtn.addEventListener("click", ()=>{
-      item.remove();
-      removeSavedCopy();
+      openConfirmDialog({
+        title: "Delete this image?",
+        message: "Removing this card will delete the saved copy from your browser.",
+        confirmLabel: "Delete image",
+        onConfirm: ()=>{
+          item.remove();
+          removeSavedCopy();
+          closeConfirmDialog();
+        }
+      });
     });
 
     outputEl.prepend(item);
