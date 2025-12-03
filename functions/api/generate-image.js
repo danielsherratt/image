@@ -1,5 +1,5 @@
 export async function onRequestPost({ request, env }) {
-  const { prompt, model, quality, size, n, image } = await request.json();
+  const { prompt, model, quality, size, n } = await request.json();
 
   const r = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
@@ -13,7 +13,6 @@ export async function onRequestPost({ request, env }) {
       quality: quality || "low",
       size: size || "1024x1024",
       n: n || 1,
-      image: image || undefined,
     }),
   });
 
