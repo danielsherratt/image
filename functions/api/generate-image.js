@@ -1,10 +1,5 @@
 export async function onRequestPost({ request, env }) {
-  const { prompt, model, quality, size, n, image, mask } = await request.json();
-
-  const asBlob = async (dataUrl) => {
-    const response = await fetch(dataUrl);
-    return response.blob();
-  };
+  const { prompt, model, quality, size, n } = await request.json();
 
   const parseImages = async (response) => {
     const txt = await response.text();
@@ -21,27 +16,6 @@ export async function onRequestPost({ request, env }) {
       headers: { "Content-Type": "application/json" }
     });
   };
-
-  if (image && mask) {
-    const form = new FormData();
-    form.append("prompt", prompt || "");
-    form.append("model", model || "gpt-image-1");
-    if (quality) form.append("quality", quality);
-    if (size) form.append("size", size);
-    form.append("n", String(n || 1));
-    form.append("image", await asBlob(image), "image.png");
-    form.append("mask", await asBlob(mask), "mask.png");
-
-    const r = await fetch("https://api.openai.com/v1/images/edits", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${env.OPENAI_API_KEY}`,
-      },
-      body: form,
-    });
-
-    return parseImages(r);
-  }
 
   const r = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",

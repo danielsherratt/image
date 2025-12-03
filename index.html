@@ -157,24 +157,7 @@
       gap:10px;
       align-items:flex-start;
     }
-    .prompt-row-pos{position:relative;}
     .prompt-row .prompt-input{flex:1;}
-
-    .image-chip{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      padding:8px 10px;
-      border:1px solid var(--border);
-      border-radius:12px;
-      background:#fff;
-      margin-top:8px;
-      box-shadow:0 10px 24px rgba(15,23,42,.05);
-      transition: opacity .2s ease;
-    }
-    .image-chip:not(.show){display:none; opacity:0;}
-    .image-thumb{width:40px; height:40px; border-radius:10px; object-fit:cover; border:1px solid var(--border);}
-    .file-name{font-weight:600;}
 
     textarea, input[type="text"]{
       width:100%;
@@ -188,50 +171,6 @@
     }
     textarea{min-height:120px; resize:vertical; font-family:"Space Grotesk", "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;}
     textarea::placeholder{color:#94a3b8;}
-
-    .image-menu{
-      position:absolute;
-      top:42px;
-      left:0;
-      background:#fff;
-      border:1px solid var(--border);
-      border-radius:14px;
-      box-shadow:0 18px 50px rgba(15,23,42,.15);
-      padding:8px;
-      display:grid;
-      gap:6px;
-      min-width:220px;
-      z-index:10;
-      opacity:0;
-      pointer-events:none;
-      transform: translateY(-4px);
-      transition: opacity .14s ease, transform .14s ease;
-    }
-    .image-menu.show{
-      opacity:1;
-      pointer-events:auto;
-      transform: translateY(0);
-    }
-    .image-menu button{
-      border:none;
-      background:#f8fafc;
-      padding:10px 12px;
-      border-radius:10px;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      cursor:pointer;
-      color:var(--ink);
-      font-weight:600;
-      text-align:left;
-      transition: background .15s ease, box-shadow .15s ease;
-      box-shadow: inset 0 0 0 1px var(--border);
-    }
-    .image-menu button:hover{
-      background:#eef2ff;
-      box-shadow: inset 0 0 0 1px #cbd5e1;
-    }
-    .image-menu .desc{font-size:13px; color:var(--muted); font-weight:500;}
 
     /* Buttons */
     .btn{
@@ -552,58 +491,8 @@
 
       <div>
         <div class="label">Prompt</div>
-        <div class="prompt-row prompt-row-pos">
-          <button class="btn icon-only" id="imageBtn" aria-label="Add an image">
-            <i class="fa-solid fa-camera"></i>
-          </button>
-          <div class="image-menu" id="imageMenu" role="menu" aria-hidden="true">
-            <button id="captureOption" role="menuitem">
-              <i class="fa-solid fa-camera"></i>
-              <div>
-                Take photo
-                <div class="desc">Open your camera to snap a reference image.</div>
-              </div>
-            </button>
-            <button id="uploadOption" role="menuitem">
-              <i class="fa-solid fa-image"></i>
-              <div>
-                Choose from device
-                <div class="desc">Pick a photo from your library or files.</div>
-              </div>
-            </button>
-          </div>
+        <div class="prompt-row">
           <textarea class="prompt-input" id="prompt" placeholder="Write a prompt you love, then queue it up."></textarea>
-        </div>
-        <input type="file" accept="image/*" capture="environment" id="cameraInput" class="sr-only" />
-        <input type="file" accept="image/*" id="fileInput" class="sr-only" />
-        <div class="image-chip" id="imagePreview" aria-live="polite">
-          <img src="" alt="Selected image preview" class="image-thumb" />
-          <div>
-            <div class="file-name" id="imageName"></div>
-            <div class="sub" style="margin:0;">Attached image will be included with your prompt.</div>
-          </div>
-          <button class="btn small danger" id="removeImageBtn" aria-label="Remove attached image">
-            <i class="fa-solid fa-xmark"></i>
-          </button>
-        </div>
-
-        <div style="margin-top:10px; display:grid; gap:6px;">
-          <div class="label" style="margin-left:2px;">Optional mask (PNG with transparent edit area)</div>
-          <div class="actions" style="justify-content:flex-start; gap:10px;">
-            <button class="btn" id="maskUploadBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Add mask</button>
-            <span class="sub" style="margin:0;">Use a transparent area to tell the model where it may draw.</span>
-          </div>
-          <input type="file" accept="image/png" id="maskInput" class="sr-only" />
-          <div class="image-chip" id="maskPreview" aria-live="polite">
-            <img src="" alt="Selected mask preview" class="image-thumb" />
-            <div>
-              <div class="file-name" id="maskName"></div>
-              <div class="sub" style="margin:0;">Transparent areas are editable.</div>
-            </div>
-            <button class="btn small danger" id="removeMaskBtn" aria-label="Remove attached mask">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -717,22 +606,6 @@
   const outputEl = document.getElementById("output");
   const statusEl = document.getElementById("status");
   const qCountEl = document.getElementById("qCount");
-  const imageBtn = document.getElementById("imageBtn");
-  const imageMenu = document.getElementById("imageMenu");
-  const captureOption = document.getElementById("captureOption");
-  const uploadOption = document.getElementById("uploadOption");
-  const cameraInput = document.getElementById("cameraInput");
-  const fileInput = document.getElementById("fileInput");
-  const imagePreviewEl = document.getElementById("imagePreview");
-  const imageThumbEl = imagePreviewEl.querySelector("img");
-  const imageNameEl = document.getElementById("imageName");
-  const removeImageBtn = document.getElementById("removeImageBtn");
-  const maskUploadBtn = document.getElementById("maskUploadBtn");
-  const maskInput = document.getElementById("maskInput");
-  const maskPreviewEl = document.getElementById("maskPreview");
-  const maskThumbEl = maskPreviewEl.querySelector("img");
-  const maskNameEl = document.getElementById("maskName");
-  const removeMaskBtn = document.getElementById("removeMaskBtn");
   const imageModalEl = document.getElementById("imageModal");
   const modalImageEl = document.getElementById("modalImage");
   const closeModalEl = document.getElementById("closeModal");
@@ -753,8 +626,6 @@
   const DEFAULT_MODEL = "gpt-image-1";
   const STORAGE_KEY = "image-generator-outputs";
   const savedOutputs = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-  let attachedImage = null;
-  let attachedMask = null;
 
   async function compressForStorage(dataUrl){
     return new Promise(resolve => {
@@ -780,70 +651,9 @@
     });
   }
 
-  async function compressForPrompt(dataUrl){
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = ()=>{
-        try{
-          const maxSide = 512;
-          const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.max(1, Math.round(img.width * scale));
-          canvas.height = Math.max(1, Math.round(img.height * scale));
-          const ctx = canvas.getContext("2d");
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL("image/jpeg", 0.4));
-        }catch(err){
-          console.warn("Failed to shrink image for prompt", err);
-          resolve(dataUrl);
-        }
-      };
-      img.onerror = ()=> resolve(dataUrl);
-      img.src = dataUrl;
-    });
-  }
-
   function setStatus(msg, isError=false){
     statusEl.textContent = msg || "";
     statusEl.classList.toggle("error", !!isError);
-  }
-
-  function setAttachedImage(dataUrl, name){
-    attachedImage = { dataUrl, name: name || "camera-image" };
-    imageThumbEl.src = dataUrl;
-    imageNameEl.textContent = attachedImage.name;
-    imagePreviewEl.classList.add("show");
-
-    compressForPrompt(dataUrl).then(minified => {
-      if(attachedImage && attachedImage.dataUrl === dataUrl){
-        attachedImage.promptDataUrl = minified;
-      }
-    });
-  }
-
-  function setAttachedMask(dataUrl, name){
-    attachedMask = { dataUrl, name: name || "mask.png" };
-    maskThumbEl.src = dataUrl;
-    maskNameEl.textContent = attachedMask.name;
-    maskPreviewEl.classList.add("show");
-  }
-
-  function clearAttachedImage(){
-    attachedImage = null;
-    imageThumbEl.src = "";
-    imageNameEl.textContent = "";
-    imagePreviewEl.classList.remove("show");
-    cameraInput.value = "";
-    fileInput.value = "";
-    clearAttachedMask();
-  }
-
-  function clearAttachedMask(){
-    attachedMask = null;
-    maskThumbEl.src = "";
-    maskNameEl.textContent = "";
-    maskPreviewEl.classList.remove("show");
-    maskInput.value = "";
   }
 
   function persistOutputs(){
@@ -854,60 +664,6 @@
       setStatus("Could not save images locally because storage is full.", true);
     }
   }
-
-  function toggleImageMenu(force){
-    const nextState = typeof force === "boolean" ? force : !imageMenu.classList.contains("show");
-    imageMenu.classList.toggle("show", nextState);
-    imageMenu.setAttribute("aria-hidden", nextState ? "false" : "true");
-  }
-
-  function handleFileSelection(file){
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = ()=> setAttachedImage(reader.result, file.name || "camera-image" );
-    reader.readAsDataURL(file);
-  }
-
-  function handleMaskSelection(file){
-    if(!file) return;
-    if(file.type !== "image/png"){
-      setStatus("Mask must be a PNG with transparency.", true);
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = ()=> setAttachedMask(reader.result, file.name || "mask.png");
-    reader.readAsDataURL(file);
-  }
-
-  imageBtn.addEventListener("click", (e)=>{
-    e.stopPropagation();
-    toggleImageMenu();
-  });
-
-  captureOption.addEventListener("click", (e)=>{
-    e.stopPropagation();
-    toggleImageMenu(false);
-    cameraInput.click();
-  });
-
-  uploadOption.addEventListener("click", (e)=>{
-    e.stopPropagation();
-    toggleImageMenu(false);
-    fileInput.click();
-  });
-
-  document.addEventListener("click", (e)=>{
-    if(!imageMenu.contains(e.target) && e.target !== imageBtn){
-      toggleImageMenu(false);
-    }
-  });
-
-  removeImageBtn.addEventListener("click", clearAttachedImage);
-  cameraInput.addEventListener("change", ()=> handleFileSelection(cameraInput.files?.[0]));
-  fileInput.addEventListener("change", ()=> handleFileSelection(fileInput.files?.[0]));
-  maskUploadBtn.addEventListener("click", ()=> maskInput.click());
-  maskInput.addEventListener("change", ()=> handleMaskSelection(maskInput.files?.[0]));
-  removeMaskBtn.addEventListener("click", clearAttachedMask);
 
   function openModal(src, alt){
     modalImageEl.src = src;
@@ -998,8 +754,6 @@
             <span class="pill">${QUALITY_LABELS[job.quality] || job.quality}</span>
             <span class="pill">${job.sizeLabel || job.size}</span>
           <span class="pill">Prompt: ${job.enhance === "yes" ? "GPT 5.1" : "Original"}</span>
-          ${job.image ? `<span class="pill soft"><i class="fa-solid fa-image"></i> Image</span>` : ""}
-          ${job.mask ? `<span class="pill soft"><i class="fa-solid fa-wand-magic-sparkles"></i> Mask</span>` : ""}
           </div>
         </div>
         <div class="actions" style="justify-content:flex-end;">
@@ -1023,28 +777,21 @@
   }
 
   function addJob(prompt){
-    if(attachedMask && !attachedImage){
-      return setStatus("Attach a base image before adding a mask.", true);
-    }
     const sizeSelection = getSize();
-    const promptText = prompt || (attachedImage ? "Use the attached image as inspiration." : "");
     jobs.push({
-      prompt: promptText,
+      prompt,
       model: DEFAULT_MODEL,
       quality: getQuality(),
       size: sizeSelection.value,
       sizeLabel: sizeSelection.label,
-      enhance: getEnhance(),
-      image: attachedImage ? { ...attachedImage } : null,
-      mask: attachedMask ? { ...attachedMask } : null
+      enhance: getEnhance()
     });
     renderQueue();
-    clearAttachedImage();
   }
 
   addBtn.addEventListener("click", ()=>{
     const p = promptEl.value.trim();
-    if(!p && !attachedImage) return setStatus("Add a prompt or attach an image first.", true);
+    if(!p) return setStatus("Add a prompt first.", true);
     addJob(p);
     promptEl.value = "";
     setStatus("");
@@ -1066,13 +813,10 @@
     if(e.key === "Enter" && e.ctrlKey){
       e.preventDefault();
       const p = promptEl.value.trim();
-      if(p || attachedImage){
-        addJob(p);
-        promptEl.value = "";
-        setStatus("");
-      }else{
-        requestQueueKickoff();
-      }
+      if(!p) return requestQueueKickoff();
+      addJob(p);
+      promptEl.value = "";
+      setStatus("");
     }
   });
 
@@ -1124,7 +868,7 @@
   });
 
   // ---------- Output cards ----------
-  function addOutputCard({ dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt, maskUsed }, shouldSave=true){
+  function addOutputCard({ dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt }, shouldSave=true){
     const item = document.createElement("div");
     const created = createdAt || Date.now();
     item.className = "out-item";
@@ -1138,7 +882,6 @@
           <span class="pill">${QUALITY_LABELS[quality] || quality}</span>
           <span class="pill">${sizeLabel || size}</span>
           <span class="pill">Prompt: ${enhance === "yes" ? "GPT 5.1" : "Original"}</span>
-          ${maskUsed ? `<span class="pill soft"><i class="fa-solid fa-wand-magic-sparkles"></i> Mask</span>` : ""}
 
           <a class="download" download="${filename}" href="${dataUrl}">
             <i class="fa-solid fa-download"></i> Download
@@ -1177,7 +920,7 @@
     outputEl.prepend(item);
 
     if(shouldSave){
-      const entry = { dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt: created, maskUsed };
+      const entry = { dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt: created };
       // Compress before persisting to reduce localStorage footprint
       compressForStorage(dataUrl).then(minifiedDataUrl => {
         // If the card was deleted before compression finishes, skip saving.
@@ -1214,26 +957,12 @@
         model: DEFAULT_MODEL,
         quality: job.quality,
         size: job.size,
-        image: job.image?.dataUrl || job.image?.promptDataUrl || undefined,
-        mask: job.mask?.dataUrl || undefined,
         n: 1
       })
     });
     const text = await res.text().catch(()=> "");
     if(!res.ok) throw new Error(text || `Request failed (${res.status})`);
     return JSON.parse(text);
-  }
-
-  function buildPromptWithImage(job){
-    const MAX_PROMPT_IMAGE_CHARS = 25000;
-    if(job?.image?.dataUrl){
-      const reference = job.image.promptDataUrl || job.image.dataUrl;
-      const safeRef = reference?.length > MAX_PROMPT_IMAGE_CHARS
-        ? `${reference.slice(0, MAX_PROMPT_IMAGE_CHARS)}... [truncated]`
-        : reference;
-      return `${job.prompt || ""}\n\nUse this reference image (base64 encoded and resized): ${safeRef}`;
-    }
-    return job.prompt;
   }
 
   // ---------- Run queue sequentially ----------
@@ -1260,22 +989,19 @@
 
         setJobStatus(0, "Creating");
 
-        const promptForApi = buildPromptWithImage({ ...job, prompt: workingPrompt });
-        const data = await generateOne({ ...job, prompt: promptForApi });
+        const data = await generateOne({ ...job, prompt: workingPrompt });
         // expecting { images: [{ dataUrl }] }
         const img = data?.images?.[0];
         if(!img?.dataUrl) throw new Error("No image returned.");
 
-        const displayPrompt = job.image ? `${workingPrompt}\n(Attached image included.)` : workingPrompt;
         addOutputCard({
           dataUrl: img.dataUrl,
-          prompt: displayPrompt,
+          prompt: workingPrompt,
           model: DEFAULT_MODEL,
           quality: job.quality,
           size: job.size,
           sizeLabel: job.sizeLabel,
-          enhance: job.enhance,
-          maskUsed: !!job.mask
+          enhance: job.enhance
         });
 
         jobs.shift();
