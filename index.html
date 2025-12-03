@@ -586,6 +586,25 @@
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
+
+        <div style="margin-top:10px; display:grid; gap:6px;">
+          <div class="label" style="margin-left:2px;">Optional mask (PNG with transparent edit area)</div>
+          <div class="actions" style="justify-content:flex-start; gap:10px;">
+            <button class="btn" id="maskUploadBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Add mask</button>
+            <span class="sub" style="margin:0;">Use a transparent area to tell the model where it may draw.</span>
+          </div>
+          <input type="file" accept="image/png" id="maskInput" class="sr-only" />
+          <div class="image-chip" id="maskPreview" aria-live="polite">
+            <img src="" alt="Selected mask preview" class="image-thumb" />
+            <div>
+              <div class="file-name" id="maskName"></div>
+              <div class="sub" style="margin:0;">Transparent areas are editable.</div>
+            </div>
+            <button class="btn small danger" id="removeMaskBtn" aria-label="Remove attached mask">
+              <i class="fa-solid fa-xmark"></i>
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="actions action-row">
@@ -708,6 +727,12 @@
   const imageThumbEl = imagePreviewEl.querySelector("img");
   const imageNameEl = document.getElementById("imageName");
   const removeImageBtn = document.getElementById("removeImageBtn");
+  const maskUploadBtn = document.getElementById("maskUploadBtn");
+  const maskInput = document.getElementById("maskInput");
+  const maskPreviewEl = document.getElementById("maskPreview");
+  const maskThumbEl = maskPreviewEl.querySelector("img");
+  const maskNameEl = document.getElementById("maskName");
+  const removeMaskBtn = document.getElementById("removeMaskBtn");
   const imageModalEl = document.getElementById("imageModal");
   const modalImageEl = document.getElementById("modalImage");
   const closeModalEl = document.getElementById("closeModal");
@@ -729,6 +754,7 @@
   const STORAGE_KEY = "image-generator-outputs";
   const savedOutputs = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
   let attachedImage = null;
+  let attachedMask = null;
 
   async function compressForStorage(dataUrl){
     return new Promise(resolve => {
@@ -795,6 +821,13 @@
     });
   }
 
+  function setAttachedMask(dataUrl, name){
+    attachedMask = { dataUrl, name: name || "mask.png" };
+    maskThumbEl.src = dataUrl;
+    maskNameEl.textContent = attachedMask.name;
+    maskPreviewEl.classList.add("show");
+  }
+
   function clearAttachedImage(){
     attachedImage = null;
     imageThumbEl.src = "";
@@ -802,6 +835,15 @@
     imagePreviewEl.classList.remove("show");
     cameraInput.value = "";
     fileInput.value = "";
+    clearAttachedMask();
+  }
+
+  function clearAttachedMask(){
+    attachedMask = null;
+    maskThumbEl.src = "";
+    maskNameEl.textContent = "";
+    maskPreviewEl.classList.remove("show");
+    maskInput.value = "";
   }
 
   function persistOutputs(){
@@ -823,6 +865,17 @@
     if(!file) return;
     const reader = new FileReader();
     reader.onload = ()=> setAttachedImage(reader.result, file.name || "camera-image" );
+    reader.readAsDataURL(file);
+  }
+
+  function handleMaskSelection(file){
+    if(!file) return;
+    if(file.type !== "image/png"){
+      setStatus("Mask must be a PNG with transparency.", true);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ()=> setAttachedMask(reader.result, file.name || "mask.png");
     reader.readAsDataURL(file);
   }
 
@@ -852,6 +905,9 @@
   removeImageBtn.addEventListener("click", clearAttachedImage);
   cameraInput.addEventListener("change", ()=> handleFileSelection(cameraInput.files?.[0]));
   fileInput.addEventListener("change", ()=> handleFileSelection(fileInput.files?.[0]));
+  maskUploadBtn.addEventListener("click", ()=> maskInput.click());
+  maskInput.addEventListener("change", ()=> handleMaskSelection(maskInput.files?.[0]));
+  removeMaskBtn.addEventListener("click", clearAttachedMask);
 
   function openModal(src, alt){
     modalImageEl.src = src;
@@ -943,6 +999,7 @@
             <span class="pill">${job.sizeLabel || job.size}</span>
           <span class="pill">Prompt: ${job.enhance === "yes" ? "GPT 5.1" : "Original"}</span>
           ${job.image ? `<span class="pill soft"><i class="fa-solid fa-image"></i> Image</span>` : ""}
+          ${job.mask ? `<span class="pill soft"><i class="fa-solid fa-wand-magic-sparkles"></i> Mask</span>` : ""}
           </div>
         </div>
         <div class="actions" style="justify-content:flex-end;">
@@ -966,6 +1023,9 @@
   }
 
   function addJob(prompt){
+    if(attachedMask && !attachedImage){
+      return setStatus("Attach a base image before adding a mask.", true);
+    }
     const sizeSelection = getSize();
     const promptText = prompt || (attachedImage ? "Use the attached image as inspiration." : "");
     jobs.push({
@@ -975,7 +1035,8 @@
       size: sizeSelection.value,
       sizeLabel: sizeSelection.label,
       enhance: getEnhance(),
-      image: attachedImage ? { ...attachedImage } : null
+      image: attachedImage ? { ...attachedImage } : null,
+      mask: attachedMask ? { ...attachedMask } : null
     });
     renderQueue();
     clearAttachedImage();
@@ -1063,7 +1124,7 @@
   });
 
   // ---------- Output cards ----------
-  function addOutputCard({ dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt }, shouldSave=true){
+  function addOutputCard({ dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt, maskUsed }, shouldSave=true){
     const item = document.createElement("div");
     const created = createdAt || Date.now();
     item.className = "out-item";
@@ -1077,6 +1138,7 @@
           <span class="pill">${QUALITY_LABELS[quality] || quality}</span>
           <span class="pill">${sizeLabel || size}</span>
           <span class="pill">Prompt: ${enhance === "yes" ? "GPT 5.1" : "Original"}</span>
+          ${maskUsed ? `<span class="pill soft"><i class="fa-solid fa-wand-magic-sparkles"></i> Mask</span>` : ""}
 
           <a class="download" download="${filename}" href="${dataUrl}">
             <i class="fa-solid fa-download"></i> Download
@@ -1115,7 +1177,7 @@
     outputEl.prepend(item);
 
     if(shouldSave){
-      const entry = { dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt: created };
+      const entry = { dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt: created, maskUsed };
       // Compress before persisting to reduce localStorage footprint
       compressForStorage(dataUrl).then(minifiedDataUrl => {
         // If the card was deleted before compression finishes, skip saving.
@@ -1152,7 +1214,8 @@
         model: DEFAULT_MODEL,
         quality: job.quality,
         size: job.size,
-        image: job.image?.promptDataUrl || job.image?.dataUrl || undefined,
+        image: job.image?.dataUrl || job.image?.promptDataUrl || undefined,
+        mask: job.mask?.dataUrl || undefined,
         n: 1
       })
     });
@@ -1211,7 +1274,8 @@
           quality: job.quality,
           size: job.size,
           sizeLabel: job.sizeLabel,
-          enhance: job.enhance
+          enhance: job.enhance,
+          maskUsed: !!job.mask
         });
 
         jobs.shift();
