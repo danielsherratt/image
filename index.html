@@ -158,6 +158,13 @@
       align-items:flex-start;
     }
     .prompt-row .prompt-input{flex:1;}
+    .helper-row{
+      display:flex;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+    .helper-row .field{flex:1; min-width:240px;}
 
     textarea, input[type="text"]{
       width:100%;
@@ -496,6 +503,22 @@
         </div>
       </div>
 
+      <div class="helper-row">
+        <div class="field">
+          <div class="label">Global style (applied to every card)</div>
+          <textarea id="globalPrompt" placeholder="Add a shared style, mood, or art direction to keep every card consistent."></textarea>
+        </div>
+        <div class="field" style="max-width:240px;">
+          <div class="label">Mode</div>
+          <div class="seg" id="modeSeg" style="--count:2; --index:0;">
+            <div class="slider"></div>
+            <button data-value="single" class="active">Single</button>
+            <button data-value="batch">Batch</button>
+          </div>
+          <p class="sub" style="font-size:13px; margin-top:10px;">Batch generates one card first for review, then reuses that style for the rest.</p>
+        </div>
+      </div>
+
       <div class="actions action-row">
         <button class="btn primary" id="addBtn"><i class="fa-solid fa-plus"></i> Add to Queue</button>
       </div>
@@ -599,9 +622,11 @@
 
   const getQuality = setupSeg("qualitySeg", "low");
   const getSize = setupSeg("sizeSeg", "1024x1024", true);
+  const getMode = setupSeg("modeSeg", "single");
 
   // ---------- Elements ----------
   const promptEl = document.getElementById("prompt");
+  const globalPromptEl = document.getElementById("globalPrompt");
   const queueEl = document.getElementById("queue");
   const outputEl = document.getElementById("output");
   const statusEl = document.getElementById("status");
@@ -685,32 +710,72 @@
 
   // ---------- Confirmation modal ----------
   let confirmAction = null;
+  let confirmCancelAction = null;
+  let confirmResolver = null;
 
-  function openConfirmDialog({ title, message, confirmLabel, variant="danger", onConfirm }){
+  function finalizeConfirm(result){
+    if(confirmResolver){
+      confirmResolver(result);
+      confirmResolver = null;
+    }
+  }
+
+  function openConfirmDialog({ title, message, confirmLabel, variant="danger", onConfirm, onCancel, returnPromise=false }){
     confirmTitleEl.textContent = title;
     confirmMessageEl.textContent = message;
     confirmPrimaryEl.textContent = confirmLabel;
     confirmPrimaryEl.className = "btn";
     if(variant === "danger") confirmPrimaryEl.classList.add("danger");
     if(variant === "primary") confirmPrimaryEl.classList.add("primary");
-    confirmAction = onConfirm;
+    confirmAction = ()=>{
+      onConfirm?.();
+      finalizeConfirm(true);
+      closeConfirmDialog(true);
+    };
+    confirmCancelAction = ()=>{
+      onCancel?.();
+      finalizeConfirm(false);
+      closeConfirmDialog(true);
+    };
+
+    let promise;
+    if(returnPromise){
+      promise = new Promise(resolve => { confirmResolver = resolve; });
+    }
 
     confirmModalEl.classList.add("show");
     confirmModalEl.setAttribute("aria-hidden", "false");
     confirmPrimaryEl.focus();
+
+    return promise;
   }
 
-  function closeConfirmDialog(){
+  function confirmDialogAsync(opts){
+    return openConfirmDialog({ ...opts, returnPromise: true });
+  }
+
+  function closeConfirmDialog(skipResolve=false){
     confirmModalEl.classList.remove("show");
     confirmModalEl.setAttribute("aria-hidden", "true");
+    if(!skipResolve) finalizeConfirm(false);
     confirmAction = null;
+    confirmCancelAction = null;
   }
 
   confirmModalEl.addEventListener("click", (e)=>{
-    if(e.target === confirmModalEl) closeConfirmDialog();
+    if(e.target === confirmModalEl){
+      if(confirmCancelAction) confirmCancelAction();
+      else closeConfirmDialog();
+    }
   });
-  closeConfirmEl.addEventListener("click", closeConfirmDialog);
-  cancelConfirmEl.addEventListener("click", closeConfirmDialog);
+  closeConfirmEl.addEventListener("click", ()=>{
+    if(confirmCancelAction) confirmCancelAction();
+    else closeConfirmDialog();
+  });
+  cancelConfirmEl.addEventListener("click", ()=>{
+    if(confirmCancelAction) confirmCancelAction();
+    else closeConfirmDialog();
+  });
   confirmPrimaryEl.addEventListener("click", ()=> confirmAction?.());
   document.addEventListener("keydown", (e)=>{
     if(e.key === "Escape"){ closeModal(); closeConfirmDialog(); }
@@ -774,6 +839,10 @@
         renderQueue();
       });
     });
+  }
+
+  function getGlobalPrompt(){
+    return globalPromptEl.value.trim();
   }
 
   function addJob(prompt){
@@ -970,6 +1039,11 @@
     if(running) return;
     if(jobs.length===0) return setStatus("Queue is empty.", true);
 
+    const mode = getMode();
+    const globalStyle = getGlobalPrompt();
+    const usingGlobal = !!globalStyle;
+    const usingBatch = mode === "batch" && jobs.length > 1;
+
     running = true;
     stopRequested = false;
     jobs.forEach(job => delete job.status);
@@ -978,13 +1052,17 @@
     setStatus("");
 
     try{
+      let lookApproved = !usingBatch;
       while(jobs.length > 0){
         const job = jobs[0];
 
         let workingPrompt = job.prompt;
+        if(usingGlobal){
+          workingPrompt = `${globalStyle}\n${workingPrompt}`.trim();
+        }
         if(job.enhance === "yes"){
           setJobStatus(0, "Enhancing with GPT 5.1");
-          workingPrompt = await enhancePrompt(job.prompt);
+          workingPrompt = await enhancePrompt(workingPrompt);
         }
 
         setJobStatus(0, "Creating");
@@ -1006,6 +1084,20 @@
 
         jobs.shift();
         renderQueue();
+
+        if(usingBatch && !lookApproved && jobs.length > 0){
+          const approved = await confirmDialogAsync({
+            title: "Use this look for the batch?",
+            message: `Continue using this style for the remaining ${jobs.length} card${jobs.length===1?"":"s"}?`,
+            confirmLabel: "Looks good — continue",
+            variant: "primary",
+          });
+          lookApproved = approved;
+          if(!approved){
+            setStatus("Batch stopped. Adjust the global style or prompt, then start again.");
+            break;
+          }
+        }
 
         if(stopRequested){
           setStatus("Stopped after current job.");
