@@ -8,7 +8,7 @@ export async function onRequestPost({ request, env }) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "gpt-4.1",
+      model: "chatgpt-5.2",
       messages: [
         {
           role: "system",

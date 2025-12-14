@@ -458,7 +458,7 @@
 
     <!-- Left: Controls -->
     <div class="card grid" style="gap:10px;">
-      <div class="grid cols-3">
+      <div class="grid cols-2">
         <div>
           <div class="label">Quality</div>
           <div class="seg" id="qualitySeg" style="--count:3; --index:0;">
@@ -486,14 +486,6 @@
             </button>
           </div>
         </div>
-        <div>
-          <div class="label">Prompt</div>
-          <div class="seg small" id="enhanceSeg" style="--count:2; --index:1;">
-            <div class="slider"></div>
-            <button data-value="no" class="active">Original</button>
-            <button data-value="yes">GPT 5.1</button>
-          </div>
-        </div>
       </div>
 
       <div>
@@ -504,18 +496,19 @@
       </div>
 
       <div class="helper-row">
-        <div class="field">
-          <div class="label">Global style (applied to every card)</div>
-          <textarea id="globalPrompt" placeholder="Add a shared style, mood, or art direction to keep every card consistent."></textarea>
-        </div>
-        <div class="field" style="max-width:240px;">
-          <div class="label">Mode</div>
-          <div class="seg" id="modeSeg" style="--count:2; --index:0;">
+        <div class="field" style="max-width:260px;">
+          <div class="label">Input mode</div>
+          <div class="seg" id="inputSeg" style="--count:3; --index:0;">
             <div class="slider"></div>
-            <button data-value="single" class="active">Single</button>
-            <button data-value="batch">Batch</button>
+            <button data-value="prompt" class="active">Prompt</button>
+            <button data-value="enhanced">ChatGPT 5.2</button>
+            <button data-value="json">JSON</button>
           </div>
-          <p class="sub" style="font-size:13px; margin-top:10px;">Batch generates one card first for review, then reuses that style for the rest.</p>
+          <p class="sub" style="font-size:13px; margin-top:10px;">Switch to ChatGPT 5.2 to enhance prompts or JSON to bulk add jobs.</p>
+        </div>
+        <div class="field">
+          <div class="label">JSON input (array or { jobs: [] })</div>
+          <textarea id="jsonInput" placeholder='Example: ["a cozy room", {"prompt": "dramatic landscape", "quality": "high"}]'></textarea>
         </div>
       </div>
 
@@ -620,13 +613,19 @@
     high: "High"
   };
 
+  const SIZE_LABELS = {
+    "1024x1024": "Square",
+    "1024x1536": "Portrait",
+    "1536x1024": "Landscape"
+  };
+
   const getQuality = setupSeg("qualitySeg", "low");
   const getSize = setupSeg("sizeSeg", "1024x1024", true);
-  const getMode = setupSeg("modeSeg", "single");
+  const getInputMode = setupSeg("inputSeg", "prompt");
 
   // ---------- Elements ----------
   const promptEl = document.getElementById("prompt");
-  const globalPromptEl = document.getElementById("globalPrompt");
+  const jsonInputEl = document.getElementById("jsonInput");
   const queueEl = document.getElementById("queue");
   const outputEl = document.getElementById("output");
   const statusEl = document.getElementById("status");
@@ -646,7 +645,6 @@
   const runBtn = document.getElementById("runBtn");
   const clearOutBtn = document.getElementById("clearOutBtn");
   const downloadAllBtn = document.getElementById("downloadAllBtn");
-  const getEnhance = setupSeg("enhanceSeg", "no");
 
   const DEFAULT_MODEL = "gpt-image-1";
   const STORAGE_KEY = "image-generator-outputs";
@@ -818,7 +816,7 @@
           <div class="q-meta">
             <span class="pill">${QUALITY_LABELS[job.quality] || job.quality}</span>
             <span class="pill">${job.sizeLabel || job.size}</span>
-          <span class="pill">Prompt: ${job.enhance === "yes" ? "GPT 5.1" : "Original"}</span>
+          <span class="pill">Source: ${job.inputMode || (job.enhance === "yes" ? "ChatGPT 5.2" : "Prompt")}</span>
           </div>
         </div>
         <div class="actions" style="justify-content:flex-end;">
@@ -841,30 +839,89 @@
     });
   }
 
-  function getGlobalPrompt(){
-    return globalPromptEl.value.trim();
-  }
-
-  function addJob(prompt){
-    const sizeSelection = getSize();
+  function addJob(prompt, opts={}){
+    const sizeSelection = opts.size
+      ? { value: opts.size, label: opts.sizeLabel || SIZE_LABELS[opts.size] || opts.size }
+      : getSize();
     jobs.push({
       prompt,
       model: DEFAULT_MODEL,
-      quality: getQuality(),
+      quality: opts.quality || getQuality(),
       size: sizeSelection.value,
       sizeLabel: sizeSelection.label,
-      enhance: getEnhance()
+      enhance: opts.enhance || "no",
+      inputMode: opts.inputMode || "Prompt"
     });
     renderQueue();
   }
 
-  addBtn.addEventListener("click", ()=>{
+  function addJobsFromInputs(){
+    const mode = getInputMode();
+
+    if(mode === "json"){
+      const raw = jsonInputEl.value.trim();
+      if(!raw) return setStatus("Add JSON input first.", true);
+
+      let parsed;
+      try{
+        parsed = JSON.parse(raw);
+      }catch(err){
+        return setStatus("Invalid JSON. Please check the syntax.", true);
+      }
+
+      const entries = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.jobs) ? parsed.jobs : null);
+      if(!entries) return setStatus("JSON must be an array or { jobs: [] }.", true);
+
+      const defaultSize = getSize();
+      let added = 0;
+      entries.forEach(entry => {
+        let prompt = "";
+        let quality = getQuality();
+        let size = defaultSize.value;
+        let enhance = "no";
+
+        if(typeof entry === "string"){
+          prompt = entry;
+        }else if(entry && typeof entry === "object"){
+          prompt = entry.prompt || "";
+          quality = entry.quality || quality;
+          size = entry.size || size;
+          if(entry.enhance === true || entry.enhance === "yes") enhance = "yes";
+        }
+
+        if(!prompt) return;
+
+        addJob(prompt, {
+          quality,
+          size,
+          sizeLabel: SIZE_LABELS[size] || size,
+          enhance,
+          inputMode: "JSON"
+        });
+        added++;
+      });
+
+      if(added === 0) return setStatus("No jobs created from JSON.", true);
+
+      jsonInputEl.value = "";
+      setStatus(`Added ${added} job${added===1?"":"s"} from JSON.`);
+      return true;
+    }
+
     const p = promptEl.value.trim();
     if(!p) return setStatus("Add a prompt first.", true);
-    addJob(p);
+
+    const enhanceValue = mode === "enhanced" ? "yes" : "no";
+    addJob(p, {
+      enhance: enhanceValue,
+      inputMode: mode === "enhanced" ? "ChatGPT 5.2" : "Prompt"
+    });
     promptEl.value = "";
     setStatus("");
-  });
+    return true;
+  }
+
+  addBtn.addEventListener("click", addJobsFromInputs);
 
   function requestQueueKickoff(){
     if(running) return;
@@ -881,11 +938,15 @@
   promptEl.addEventListener("keydown", (e)=>{
     if(e.key === "Enter" && e.ctrlKey){
       e.preventDefault();
-      const p = promptEl.value.trim();
-      if(!p) return requestQueueKickoff();
-      addJob(p);
-      promptEl.value = "";
-      setStatus("");
+      if(!promptEl.value.trim() && jobs.length>0) return requestQueueKickoff();
+      addJobsFromInputs();
+    }
+  });
+
+  jsonInputEl.addEventListener("keydown", (e)=>{
+    if(e.key === "Enter" && e.ctrlKey){
+      e.preventDefault();
+      addJobsFromInputs();
     }
   });
 
@@ -937,7 +998,7 @@
   });
 
   // ---------- Output cards ----------
-  function addOutputCard({ dataUrl, prompt, model, quality, size, sizeLabel, enhance, createdAt }, shouldSave=true){
+  function addOutputCard({ dataUrl, prompt, model, quality, size, sizeLabel, enhance, inputMode, createdAt }, shouldSave=true){
     const item = document.createElement("div");
     const created = createdAt || Date.now();
     item.className = "out-item";
@@ -950,7 +1011,7 @@
         <div class="out-row">
           <span class="pill">${QUALITY_LABELS[quality] || quality}</span>
           <span class="pill">${sizeLabel || size}</span>
-          <span class="pill">Prompt: ${enhance === "yes" ? "GPT 5.1" : "Original"}</span>
+          <span class="pill">Source: ${inputMode || (enhance === "yes" ? "ChatGPT 5.2" : "Prompt")}</span>
 
           <a class="download" download="${filename}" href="${dataUrl}">
             <i class="fa-solid fa-download"></i> Download
@@ -1039,11 +1100,6 @@
     if(running) return;
     if(jobs.length===0) return setStatus("Queue is empty.", true);
 
-    const mode = getMode();
-    const globalStyle = getGlobalPrompt();
-    const usingGlobal = !!globalStyle;
-    const usingBatch = mode === "batch" && jobs.length > 1;
-
     running = true;
     stopRequested = false;
     jobs.forEach(job => delete job.status);
@@ -1052,16 +1108,12 @@
     setStatus("");
 
     try{
-      let lookApproved = !usingBatch;
       while(jobs.length > 0){
         const job = jobs[0];
 
         let workingPrompt = job.prompt;
-        if(usingGlobal){
-          workingPrompt = `${globalStyle}\n${workingPrompt}`.trim();
-        }
         if(job.enhance === "yes"){
-          setJobStatus(0, "Enhancing with GPT 5.1");
+          setJobStatus(0, "Enhancing with ChatGPT 5.2");
           workingPrompt = await enhancePrompt(workingPrompt);
         }
 
@@ -1079,25 +1131,12 @@
           quality: job.quality,
           size: job.size,
           sizeLabel: job.sizeLabel,
-          enhance: job.enhance
+          enhance: job.enhance,
+          inputMode: job.inputMode
         });
 
         jobs.shift();
         renderQueue();
-
-        if(usingBatch && !lookApproved && jobs.length > 0){
-          const approved = await confirmDialogAsync({
-            title: "Use this look for the batch?",
-            message: `Continue using this style for the remaining ${jobs.length} card${jobs.length===1?"":"s"}?`,
-            confirmLabel: "Looks good — continue",
-            variant: "primary",
-          });
-          lookApproved = approved;
-          if(!approved){
-            setStatus("Batch stopped. Adjust the global style or prompt, then start again.");
-            break;
-          }
-        }
 
         if(stopRequested){
           setStatus("Stopped after current job.");
