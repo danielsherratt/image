@@ -458,7 +458,7 @@
 
     <!-- Left: Controls -->
     <div class="card grid" style="gap:10px;">
-      <div class="grid cols-2">
+      <div class="grid cols-3" style="gap:10px;">
         <div>
           <div class="label">Quality</div>
           <div class="seg" id="qualitySeg" style="--count:3; --index:0;">
@@ -486,18 +486,7 @@
             </button>
           </div>
         </div>
-      </div>
-
-      <div>
-        <div class="label">Prompt</div>
-        <div class="prompt-row">
-          <textarea class="prompt-input" id="prompt" placeholder="Write a prompt you love, then queue it up."></textarea>
-        </div>
-        <p class="sub" style="font-size:13px; margin:10px 0 0 4px;">Switch modes below. JSON mode accepts an array or { jobs: [] } directly in the prompt box.</p>
-      </div>
-
-      <div class="helper-row">
-        <div class="field" style="max-width:260px;">
+        <div>
           <div class="label">Input mode</div>
           <div class="seg" id="inputSeg" style="--count:3; --index:0;">
             <div class="slider"></div>
@@ -506,6 +495,14 @@
             <button data-value="json">JSON</button>
           </div>
         </div>
+      </div>
+
+      <div>
+        <div class="label">Prompt</div>
+        <div class="prompt-row">
+          <textarea class="prompt-input" id="prompt" placeholder="Write a prompt you love, then queue it up."></textarea>
+        </div>
+        <p class="sub" style="font-size:13px; margin:10px 0 0 4px;">Switch modes below. JSON mode accepts an array or { jobs: [] } directly in the prompt box.</p>
       </div>
 
       <div class="actions action-row">
