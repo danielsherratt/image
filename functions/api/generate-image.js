@@ -24,7 +24,7 @@ export async function onRequestPost({ request, env }) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: model || "gpt-image-1",
+      model: model || "gpt-image-1.5",
       prompt,
       quality: quality || "low",
       size: size || "1024x1024",
